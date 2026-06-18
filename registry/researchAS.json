@@ -1,0 +1,11 @@
+{
+  "schema": "registry/v1",
+  "agent": "researchAS",
+  "summary": "Rigorous research validator and innovation strategist: explores domains, reviews literature, and assesses novelty with verified citations.",
+  "capabilities": ["literature_review", "novelty_assessment", "domain_exploration", "deep_dive"],
+  "consumes": ["idea", "topic", "paper"],
+  "produces": ["research_report", "novelty_verdict"],
+  "approval_default": "none",
+  "cost_hint": "medium",
+  "when_to_use": "research a concept/domain, assess novelty, or do a cited deep dive"
+}

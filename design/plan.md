@@ -1,0 +1,78 @@
+# AgentSuite — Plan
+
+Build order favors a **thin vertical slice that runs end-to-end first**, then deepens each
+component. Every phase ends with something runnable and a measured result, not broad stubs.
+
+## Phase 0 — Scaffold & contracts (foundation)
+- [x] Decide architecture, invocation backend, storage (see `handoff.md` decision log).
+- [x] Verify Backend A feasibility (`copilot --agent X -p … --output-format json`).
+- [x] Create the Python package skeleton (`agentsuite/`), `pyproject.toml`, test harness, `.gitignore`.
+- [x] Author the JSON Schemas: `plan/v1`, `artifact/v1`, `registry/v1`, `event/v1` + validators + dataclass models.
+- [x] Write capability manifests (`registry/<agent>.json`) for the existing AS agents (9 workers).
+- **Exit:** ✅ schemas validate sample plans/artifacts; `pytest` green (30 passed).
+
+## Phase 1 — MVP vertical slice (single agent, end-to-end)
+- [x] `AgentRunner` interface + **Backend A** implementation (spawn `copilot`, `-s` text → `artifact/v1`). MockRunner for tests.
+- [x] Minimal orchestrator: validate plan (schema + registry) → topo-order → invoke via runner → validate seam → aggregate, with event trail.
+- [x] **Backend A retired risk R3**: live one-node run (teachAS) succeeded end-to-end via `scripts/smoke_backend_a.py`.
+- [x] managerAS persona (planner) authored at `~/.copilot/agents/managerAS.md`; emits `plan/v1`.
+- [ ] Glue: user task → managerAS → plan → orchestrator (wire managerAS's emitted plan into `Orchestrator.run`).
+- **Exit:** ✅ a real task ("teachAS, explain X") flows orchestrator → headless worker → seam-validated artifact. Remaining: auto-ingest a plan emitted by managerAS.
+
+## Phase 2 — Memory substrate (event log + MCP)
+- [ ] SQLite schema: `events` (append-only) + projection tables.
+- [ ] Event-sourcing writer; orchestrator emits an event per invocation/decision/escalation.
+- [ ] Local **MCP server** exposing memory read/write; inject into workers via `--additional-mcp-config`.
+- [ ] Blackboard: artifacts persisted + resolvable by id across nodes.
+- **Exit:** a run is fully reconstructable from the event log; workers can read/write shared memory via MCP.
+
+## Phase 3 — Routing & registry
+- [ ] Plan validation against the capability registry (type-check `agent`/`inputs`/`produces`).
+- [ ] managerAS routes by matching task requirements → agent manifests (no hardcoded routing).
+- **Exit:** adding a new agent = adding a manifest; manager can pick it with no orchestrator change.
+
+## Phase 4 — Guardrails & human-in-the-loop
+- [ ] Budget/token caps, timeouts, max delegation depth, loop detection (manager↔agent ping-pong).
+- [ ] Approval gates (`approval: required`) — orchestrator pauses for user sign-off (experimentAS/prepAS).
+- [ ] Escalation path: failure / contract violation → return to manager for re-plan.
+- **Exit:** a deliberately failing node escalates and re-plans; an approval-gated node waits for the user.
+
+## Phase 5 — Multi-agent DAG (parallelism, resume)
+- [ ] Topological scheduler with bounded parallel workers (`--max-workers`).
+- [ ] `--resume` from the event log (skip completed nodes); partial re-runs (`--from`/`--to` node).
+- [ ] End-to-end multi-agent task (e.g. experimentAS designs → coderAS implements → experimentAS analyzes).
+- **Exit:** a 3+ node DAG runs with parallelism and is resumable after an interrupt.
+
+## Phase 6 — Derived memory (graph + vector)
+- [ ] Project events into the knowledge graph (extend kgraph to suite scope).
+- [ ] `sqlite-vec` vector index over artifacts + facts; semantic retrieval for the manager's context.
+- [ ] Per-agent namespaced views unifying the existing heterogeneous stores.
+- **Exit:** manager retrieves relevant prior artifacts/facts semantically; graph navigable.
+
+## Phase 7 — Future / inventive (scoped, not built)
+- [ ] **Backend C** migration (LangGraph/durable or `--acp`) behind the same `AgentRunner`.
+- [ ] **Self-experimenting suite**: A/B alternative plans / agent configs, measured via the event log.
+- [ ] **Contract-typed routing**: static type-check of plan composition.
+- [ ] Reflection/critic loop before artifact acceptance.
+
+## Milestone map
+| Milestone | Phases | Demonstrable outcome |
+|---|---|---|
+| M1 — "It runs" | 0–1 | Manager → orchestrator → one headless worker → answer |
+| M2 — "It remembers" | 2–3 | Event-sourced, MCP-shared memory; registry-routed |
+| M3 — "It's safe & parallel" | 4–5 | Guardrails, approval gates, resumable multi-agent DAG |
+| M4 — "It learns & migrates" | 6–7 | Semantic memory; Backend C path; self-experimentation |
+
+## Risk & assumption register
+| # | Risk / assumption | Status | Mitigation |
+|---|---|---|---|
+| R1 | Backend A can run a named agent headlessly & return parseable output | **Retired** | Verified: `--agent`, `-p`, `--output-format json`, `--no-ask-user`, `--allow-all-tools` |
+| R2 | Headless worker latency/cost is acceptable for multi-node DAGs | Open | Measure in Phase 1; cache; parallelize; budget caps |
+| R3 | Nested `copilot` invocation (CLI-in-CLI) behaves cleanly | **Retired** | Live smoke test: `scripts/smoke_backend_a.py` ran teachAS headless end-to-end, valid artifact returned |
+| R4 | Manager reliably emits schema-valid plans | Open | Strict validator + reject-and-retry loop; few-shot the manager |
+| R5 | Memory-poisoning / stale facts across runs | Open | Provenance on every fact; supersede edges; injection containment |
+| R6 | Backend C migration stays cheap | Mitigated by design | `AgentRunner` seam keeps plan/memory/registry invocation-agnostic |
+
+## Definition of Done (per task, coderAS bar)
+Code runs · tests pass · result measured & logged (event log) · `architecture.md` + `handoff.md`
+updated · provenance recorded · kgraph map updated.

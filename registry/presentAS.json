@@ -1,0 +1,11 @@
+{
+  "schema": "registry/v1",
+  "agent": "presentAS",
+  "summary": "Enterprise presentation partner: turns technical work into audience-grade, visuals-heavy decks (PowerPoint + reveal.js) with sourced facts.",
+  "capabilities": ["deck_creation", "narrative_design", "data_storytelling"],
+  "consumes": ["project_context", "results", "paper_draft"],
+  "produces": ["presentation_deck", "deck_spec"],
+  "approval_default": "none",
+  "cost_hint": "medium",
+  "when_to_use": "build an audience-facing presentation or deck from technical work"
+}

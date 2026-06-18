@@ -1,0 +1,11 @@
+{
+  "schema": "registry/v1",
+  "agent": "coderAS",
+  "summary": "Critical, scientifically-minded coding & execution partner. Implements to enterprise grade, documents decisions, runs and verifies.",
+  "capabilities": ["implementation", "refactoring", "debugging", "testing", "build", "code_review_fixes"],
+  "consumes": ["spec", "design", "experiment_design", "bug_report", "plan"],
+  "produces": ["code_change", "test_result", "implementation_report"],
+  "approval_default": "required",
+  "cost_hint": "high",
+  "when_to_use": "build, implement, refactor, debug, or run/verify code to enterprise quality"
+}

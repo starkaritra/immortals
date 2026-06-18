@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentsuite"
+version = "0.0.1"
+description = "Manager-orchestrated multi-agent system over the AS agent suite (managerAS + deterministic orchestrator)."
+requires-python = ">=3.11"
+dependencies = [
+    "jsonschema>=4.20",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["agentsuite*"]
+
+[tool.setuptools.package-data]
+"agentsuite.contracts" = ["schemas/*.json"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

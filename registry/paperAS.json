@@ -1,0 +1,11 @@
+{
+  "schema": "registry/v1",
+  "agent": "paperAS",
+  "summary": "Academic paper partner: writing, reviewing, and venue positioning with rigorous critique and citation verification.",
+  "capabilities": ["paper_writing", "paper_review", "venue_strategy", "rebuttal"],
+  "consumes": ["research_report", "analysis_report", "results"],
+  "produces": ["paper_draft", "paper_review"],
+  "approval_default": "none",
+  "cost_hint": "medium",
+  "when_to_use": "write, review, or position an academic paper"
+}

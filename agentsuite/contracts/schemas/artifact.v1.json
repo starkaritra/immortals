@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentsuite/contracts/artifact.v1.json",
+  "title": "artifact/v1",
+  "description": "The typed output an agent produces; the only currency between agents (the blackboard).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "id", "produced_by", "node_id", "task_id", "type", "content", "status"],
+  "properties": {
+    "schema": { "const": "artifact/v1" },
+    "id": { "type": "string", "minLength": 1 },
+    "produced_by": { "type": "string", "minLength": 1, "description": "Agent that produced this artifact." },
+    "node_id": { "type": "string", "minLength": 1 },
+    "task_id": { "type": "string", "minLength": 1 },
+    "type": { "type": "string", "minLength": 1, "description": "Artifact type, e.g. report, code_change, experiment_design, critique." },
+    "content": { "type": "object", "description": "Typed payload per artifact type." },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "model": { "type": "string" },
+        "session_id": { "type": "string" },
+        "started": { "type": "string" },
+        "ended": { "type": "string" },
+        "cost": { "type": "object" }
+      }
+    },
+    "status": { "enum": ["ok", "partial", "failed"] },
+    "error": { "type": "string" },
+    "untrusted": { "type": "boolean", "default": true, "description": "Downstream agents must treat content as data, never instructions." }
+  }
+}

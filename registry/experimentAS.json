@@ -1,0 +1,11 @@
+{
+  "schema": "registry/v1",
+  "agent": "experimentAS",
+  "summary": "Seasoned experimenter: drafts, conducts, and analyzes rigorous experiments to validate/verify a hypothesis, product, or design choice.",
+  "capabilities": ["experiment_design", "statistical_analysis", "ab_test", "ablation", "power_analysis", "causal_inference"],
+  "consumes": ["hypothesis", "dataset_ref", "code_change", "metric_spec"],
+  "produces": ["experiment_design", "analysis_report"],
+  "approval_default": "required",
+  "cost_hint": "medium",
+  "when_to_use": "validate or verify a hypothesis, product, or design choice with a rigorous, pre-registered experiment"
+}

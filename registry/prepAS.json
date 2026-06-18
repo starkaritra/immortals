@@ -1,0 +1,11 @@
+{
+  "schema": "registry/v1",
+  "agent": "prepAS",
+  "summary": "Exhaustive high-stakes preparation partner: builds a prioritized coverage map and study dossier, then drills with mock Q&A and feedback.",
+  "capabilities": ["scenario_prep", "coverage_map", "mock_drill", "readiness_assessment"],
+  "consumes": ["scenario_spec", "resume", "job_description"],
+  "produces": ["prep_dossier", "drill_feedback", "readiness_report"],
+  "approval_default": "none",
+  "cost_hint": "medium",
+  "when_to_use": "prepare for an interview, exam, presentation, or other high-stakes scenario"
+}
