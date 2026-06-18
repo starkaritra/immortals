@@ -30,6 +30,7 @@ class Node:
     prompt: str
     produces: str
     inputs: list[str] = field(default_factory=list)
+    depends_on: list[str] = field(default_factory=list)
     context_refs: list[str] = field(default_factory=list)
     success_criteria: str | None = None
     reversibility: str = "reversible"
@@ -88,6 +89,7 @@ class Plan:
                 prompt=n["prompt"],
                 produces=n["produces"],
                 inputs=n.get("inputs", []),
+                depends_on=n.get("depends_on", []),
                 context_refs=n.get("context_refs", []),
                 success_criteria=n.get("success_criteria"),
                 reversibility=n.get("reversibility", "reversible"),

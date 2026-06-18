@@ -109,6 +109,7 @@ class Orchestrator:
 
     def _validate_plan(self, plan: Plan) -> None:
         plan.validate()  # schema
+        node_ids = {n.id for n in plan.nodes}
         produced_by: dict[str, str] = {}
         for node in plan.nodes:
             if node.agent not in self.registry:
@@ -122,12 +123,18 @@ class Orchestrator:
                     f"{produced_by[node.produces]!r} and {node.id!r}"
                 )
             produced_by[node.produces] = node.id
-        # Every declared input must be produced by some node.
         for node in plan.nodes:
+            # Every declared input must be produced by some node.
             for art_id in node.inputs:
                 if art_id not in produced_by:
                     raise PlanError(
                         f"node {node.id!r} consumes {art_id!r}, which no node produces"
+                    )
+            # Every explicit dependency must reference a real node.
+            for dep in node.depends_on:
+                if dep not in node_ids:
+                    raise PlanError(
+                        f"node {node.id!r} depends_on {dep!r}, which is not a node in the plan"
                     )
 
     def _topo_order(self, plan: Plan) -> list[str]:
@@ -137,6 +144,8 @@ class Orchestrator:
         for node in plan.nodes:
             for art_id in node.inputs:
                 deps[node.id].add(produced_by[art_id])
+            # Explicit node-level dependencies.
+            deps[node.id].update(node.depends_on)
         # Explicit control edges (from -> to means "to depends on from").
         for edge in plan.edges:
             if edge.to in deps and edge.from_ in deps:

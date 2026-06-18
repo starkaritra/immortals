@@ -80,6 +80,32 @@ def test_runner_error_escalates(registry):
     assert result.error == "kaboom"
 
 
+def test_depends_on_orders_and_validates(registry):
+    """A node-level depends_on (no data input) still orders correctly."""
+    mock = MockRunner()
+    plan = Plan(
+        task_id="t-dep",
+        goal="g",
+        nodes=[
+            Node(id="b", agent="teachAS", prompt="p", produces="yb", depends_on=["a"]),
+            Node(id="a", agent="teachAS", prompt="p", produces="xa"),
+        ],
+    )
+    result = Orchestrator(runner=mock, registry=registry).run(plan)
+    assert result.status == "completed"
+    assert [c.node_id for c in mock.calls] == ["a", "b"]
+
+
+def test_bad_depends_on_rejected(registry):
+    plan = Plan(
+        task_id="t-baddep",
+        goal="g",
+        nodes=[Node(id="a", agent="teachAS", prompt="p", produces="x", depends_on=["ghost"])],
+    )
+    with pytest.raises(PlanError):
+        Orchestrator(runner=MockRunner(), registry=registry).run(plan)
+
+
 def test_unregistered_agent_rejected(registry):
     plan = Plan(task_id="t-x", goal="g",
                 nodes=[Node(id="n", agent="ghostAS", prompt="p", produces="a")])

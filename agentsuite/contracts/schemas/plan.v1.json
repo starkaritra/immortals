@@ -36,6 +36,11 @@
           "items": { "type": "string" },
           "description": "Artifact ids this node consumes."
         },
+        "depends_on": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Explicit upstream node ids this node depends on, in addition to data dependencies implied by inputs."
+        },
         "produces": {
           "type": "string",
           "minLength": 1,

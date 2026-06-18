@@ -13,16 +13,20 @@ invoking worker agents as **headless `copilot` processes** and routing typed **a
 between them through a **local SQLite + MCP** memory substrate.
 
 ## 2. Current state
-- **Phase:** 1 (MVP vertical slice) — **runs end-to-end**. Phase 0 complete.
-- **Built:** `agentsuite/` package — `contracts/` (4 JSON Schemas + validator + dataclass
-  models), `registry/` (manifest loader) + 9 worker manifests in `registry/`, `runners/`
-  (`AgentRunner` interface, `MockRunner`, `CopilotRunner` Backend A), `orchestrator/`
-  (deterministic DAG executor: schema+registry validation, topo-order, seam validation,
-  event trail). Tests: **30 passing**. `scripts/smoke_backend_a.py` proves a live run.
-- **De-risked:** Backend A invocation (R1) and nested-CLI execution (R3) both retired by a
-  real run — teachAS answered headlessly and the orchestrator validated the seam.
-- **managerAS authored:** `~/.copilot/agents/managerAS.md` (user-agnostic; three layers).
-- **Remaining for Phase 1:** auto-ingest a plan emitted by managerAS into `Orchestrator.run`.
+- **Phase:** 1 **complete** — the full manager→plan→orchestrate loop runs end-to-end. Phase 0 done.
+- **Built:** `agentsuite/` — `contracts/` (4 schemas + validator + models; `plan/v1` nodes
+  support `inputs`, `depends_on`, and `edges` for dependencies), `registry/` (loader) + 9
+  worker manifests, `runners/` (`AgentRunner`, `MockRunner`, `CopilotRunner` Backend A),
+  `orchestrator/` (deterministic DAG executor with schema+registry validation, topo-order,
+  seam validation, event trail), and `cli.py` (`python -m agentsuite run` — the seam managerAS
+  calls, decision AS-013). Tests: **36 passing**.
+- **De-risked (all retired):** Backend A invocation (R1), nested-CLI execution (R3) — live
+  teachAS run; manager plan emission (R4) — live managerAS produced a valid 2-node `plan/v1`
+  that the CLI executed in order with a full event trail.
+- **managerAS authored & wired:** `~/.copilot/agents/managerAS.md` (user-agnostic; three
+  layers; execution model = "managerAS in the loop", invokes the CLI seam).
+- **Topology settled (AS-013):** manager is the interactive driver; orchestrator is a tool it
+  calls; only workers run headless.
 
 ## 3. Reliability (design intent)
 - **Determinism where it counts:** the orchestrator's control flow is deterministic code;
@@ -130,24 +134,42 @@ between them through a **local SQLite + MCP** memory substrate.
 - **Consequences:** define the team/user-model contract as the seam between patrecAS/learnAS
   (writer) and managerAS (reader); it reads from the AS-006 event log.
 
-## 6. Open questions / next decisions
-- **Q1 — Plan schema depth:** finalize `plan/v1` fields (retry policy, conditional edges `on:
-  success|failure`, fan-out/fan-in). *Next decision before Phase 0 schemas.*
-- **Q2 — managerAS authoring:** is managerAS a Copilot custom agent (`.md`) like the others, or
-  a thin code+LLM component? (Leaning: `.md` persona constrained to emit `plan/v1` JSON.)
-- **Q3 — Memory unification:** migrate existing per-agent stores (teachAS/prepAS/experimentAS/
-  kgraph) into the substrate now, or bridge them lazily? (Leaning: bridge lazily.)
-- **Q4 — Nested-CLI isolation:** confirm headless `copilot` workers run cleanly from a parent
-  session (workspace, session-id, env). *Retire early in Phase 1 (risk R3).*
-- **Q5 — Repo hygiene:** initialize git + `.gitignore` (exclude SQLite DB, run outputs, caches).
+### [AS-013] Execution topology — "managerAS in the loop"
+- **Status:** accepted.
+- **Context:** managerAS must do consultative intake (talk to the user) and is the only
+  user-facing agent, but the orchestrator drives workers headlessly (`--no-ask-user`). How do
+  human-in-the-loop intake and a headless orchestrator coexist?
+- **Decision:** **managerAS is always the interactive, foreground driver** — it does intake
+  (with `ask_user`) and final synthesis with the user, emits a `plan/v1`, and **invokes the
+  deterministic orchestrator as a tool** (MVP: `shell` → `python -m agentsuite run --plan-file
+  …`; production: the orchestrator MCP server). **Only worker agents run headless**, spawned by
+  the orchestrator. managerAS is never the headless one on the normal path.
+- **Consequences:** a headless managerAS (no intake, autonomous assumptions) is kept as a
+  **future automation mode** for self-experimentation / patrecAS-driven runs, reusing the same
+  `python -m agentsuite run` seam. Build target: a CLI `run` command + managerAS wired to call
+  it. Resolves open question Q2.
 
-## 7. Next actions (immediate)
-1. Initialize git + `pyproject.toml` + `.gitignore` for `C:\Code\AgentSuite\`.
-2. Author the four JSON Schemas (`plan/v1`, `artifact/v1`, `registry/v1`, `event/v1`) + validators + tests (Phase 0).
-3. Write capability manifests for the existing AS agents in `registry/`.
-4. ~~Draft the **managerAS** persona~~ — **done**: `~/.copilot/agents/managerAS.md` (user-agnostic; three layers — JARVIS temperament / CEO methodology / AgentSuite mechanism; resolves Q2 toward a constrained `.md` persona that emits `plan/v1`).
-5. Spike Backend A: a Python `AgentRunner` that spawns one worker and parses JSONL → `artifact/v1` (retires R3), then wire the Phase-1 single-node slice.
-6. Initialize a kgraph project for AgentSuite and seed nodes from `architecture.md`.
+## 6. Open questions / next decisions
+- **Q1 — Plan schema depth (partial):** `inputs`/`depends_on`/`edges` done. Still open: retry
+  policy and conditional edges (`on: success|failure` branching is in the schema but the
+  executor treats edges as ordering only — failure currently stops the run). Revisit in Phase 4/5.
+- **Q3 — Memory unification:** migrate existing per-agent stores (teachAS/prepAS/experimentAS/
+  kgraph) into the substrate now, or bridge them lazily? (Leaning: bridge lazily.) *Phase 2/6.*
+- **Q6 — Synthesis pass:** should the CLI offer a `synthesize` helper, or does managerAS always
+  synthesize from the returned artifacts itself? (Leaning: manager synthesizes; CLI stays
+  execution-only.)
+- *(Resolved: Q2 managerAS authoring → `.md` persona, AS-013; Q4 nested-CLI → R3 retired;
+  Q5 repo hygiene → git initialized, `.gitignore` in place.)*
+
+## 7. Next actions (immediate) — Phase 2: memory substrate
+1. SQLite schema + append-only `event/v1` writer; wire the orchestrator's `event_sink` to it
+   so every run is durably reconstructable (decisions AS-006/007).
+2. Persist artifacts (blackboard) to the store, resolvable by id across runs.
+3. Local **MCP server** exposing memory read/write; inject into workers via
+   `--additional-mcp-config` so agents share memory.
+4. Then **Phase 4 (pull forward): guardrails** — budget/token caps, timeouts, approval gates —
+   before unleashing multi-node *real* (billable) runs.
+5. Initialize a kgraph project for AgentSuite and seed nodes from `architecture.md`.
 
 ## 8. Related precedents (reuse, don't reinvent)
 - `eval_platform/core/pipeline/runner.py` — composable stage runner (the orchestrator skeleton).

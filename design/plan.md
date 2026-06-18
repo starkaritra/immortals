@@ -16,8 +16,8 @@ component. Every phase ends with something runnable and a measured result, not b
 - [x] Minimal orchestrator: validate plan (schema + registry) → topo-order → invoke via runner → validate seam → aggregate, with event trail.
 - [x] **Backend A retired risk R3**: live one-node run (teachAS) succeeded end-to-end via `scripts/smoke_backend_a.py`.
 - [x] managerAS persona (planner) authored at `~/.copilot/agents/managerAS.md`; emits `plan/v1`.
-- [ ] Glue: user task → managerAS → plan → orchestrator (wire managerAS's emitted plan into `Orchestrator.run`).
-- **Exit:** ✅ a real task ("teachAS, explain X") flows orchestrator → headless worker → seam-validated artifact. Remaining: auto-ingest a plan emitted by managerAS.
+- [x] Glue: CLI `python -m agentsuite run --plan-file …` (the orchestrator seam, decision AS-013); managerAS invokes it via shell and synthesizes. `depends_on` made first-class after observing managerAS's natural output.
+- **Exit:** ✅ **Phase 1 done.** A live managerAS planning call emitted a valid 2-node `plan/v1`; the CLI executed it in dependency order with a full event trail. Backend A proven on a real worker run.
 
 ## Phase 2 — Memory substrate (event log + MCP)
 - [ ] SQLite schema: `events` (append-only) + projection tables.
@@ -69,7 +69,7 @@ component. Every phase ends with something runnable and a measured result, not b
 | R1 | Backend A can run a named agent headlessly & return parseable output | **Retired** | Verified: `--agent`, `-p`, `--output-format json`, `--no-ask-user`, `--allow-all-tools` |
 | R2 | Headless worker latency/cost is acceptable for multi-node DAGs | Open | Measure in Phase 1; cache; parallelize; budget caps |
 | R3 | Nested `copilot` invocation (CLI-in-CLI) behaves cleanly | **Retired** | Live smoke test: `scripts/smoke_backend_a.py` ran teachAS headless end-to-end, valid artifact returned |
-| R4 | Manager reliably emits schema-valid plans | Open | Strict validator + reject-and-retry loop; few-shot the manager |
+| R4 | Manager reliably emits schema-valid plans | **Retired** | Live managerAS planning call emitted a valid 2-node `plan/v1`; `depends_on` made first-class to match its natural output; reject-and-retry still available |
 | R5 | Memory-poisoning / stale facts across runs | Open | Provenance on every fact; supersede edges; injection containment |
 | R6 | Backend C migration stays cheap | Mitigated by design | `AgentRunner` seam keeps plan/memory/registry invocation-agnostic |
 
