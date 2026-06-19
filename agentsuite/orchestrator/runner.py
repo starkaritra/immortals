@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable
@@ -10,6 +11,7 @@ from agentsuite.contracts import validate, ContractError
 from agentsuite.contracts.models import Plan, Node, Artifact
 from agentsuite.registry import Registry
 from agentsuite.runners.base import AgentRunner, RunRequest, RunnerError
+from .guardrails import ApprovalHandler, Guardrails, GuardrailBreach, GuardrailState
 
 EventSink = Callable[[dict], None]
 ArtifactSink = Callable[["Artifact"], None]
@@ -22,7 +24,7 @@ class PlanError(ValueError):
 @dataclass
 class RunResult:
     task_id: str
-    status: str  # "completed" | "failed"
+    status: str  # "completed" | "failed" | "blocked"
     artifacts: dict[str, Artifact] = field(default_factory=dict)
     events: list[dict] = field(default_factory=list)
     failed_node: str | None = None
@@ -40,12 +42,16 @@ class Orchestrator:
         registry: Registry | None = None,
         event_sink: EventSink | None = None,
         artifact_sink: ArtifactSink | None = None,
+        guardrails: Guardrails | None = None,
+        approval_handler: ApprovalHandler | None = None,
         default_workspace: str | None = None,
     ):
         self.runner = runner
         self.registry = registry if registry is not None else Registry.load()
         self.event_sink = event_sink
         self.artifact_sink = artifact_sink
+        self.guardrails = guardrails or Guardrails()
+        self.approval_handler = approval_handler
         self.default_workspace = default_workspace
 
     # -- public API --------------------------------------------------------------------
@@ -75,9 +81,33 @@ class Orchestrator:
 
         order = self._topo_order(plan)
         blackboard: dict[str, Artifact] = {}
+        state = GuardrailState(self.guardrails)
+        started_at = time.monotonic()
 
         for node_id in order:
             node = plan.node(node_id)
+
+            # Approval gate (AS-005): a node marked approval=required must be signed off first.
+            if node.approval == "required":
+                emit("approval_requested", node_id=node.id, agent=node.agent,
+                     payload={"reversibility": node.reversibility})
+                granted = self.approval_handler(node) if self.approval_handler else False
+                if not granted:
+                    reason = "approval_denied" if self.approval_handler else "approval_required"
+                    emit("escalation", node_id=node.id, payload={"reason": reason})
+                    return RunResult(plan.task_id, "blocked", blackboard, events, node.id,
+                                     f"node {node.id!r} requires approval ({reason})")
+                emit("approval_granted", node_id=node.id, agent=node.agent)
+
+            # Pre-invoke guardrails (deadline / node / per-agent invocation caps).
+            try:
+                state.before_node(node.agent, time.monotonic() - started_at)
+            except GuardrailBreach as breach:
+                emit("node_failed", node_id=node.id, agent=node.agent,
+                     payload={"error": breach.message})
+                emit("escalation", node_id=node.id, payload={"reason": breach.reason})
+                return RunResult(plan.task_id, "failed", blackboard, events, node.id, breach.message)
+
             emit("node_started", node_id=node.id, agent=node.agent)
             request = self._build_request(plan, node, blackboard)
             try:
@@ -106,6 +136,15 @@ class Orchestrator:
                 self.artifact_sink(artifact)
             emit("artifact_written", node_id=node.id, agent=node.agent, payload={"artifact_id": artifact.id})
             emit("node_completed", node_id=node.id, agent=node.agent)
+
+            # Post-invoke accounting (token budget).
+            try:
+                state.after_node(artifact)
+            except GuardrailBreach as breach:
+                emit("node_failed", node_id=node.id, agent=node.agent,
+                     payload={"error": breach.message})
+                emit("escalation", node_id=node.id, payload={"reason": breach.reason})
+                return RunResult(plan.task_id, "failed", blackboard, events, node.id, breach.message)
 
         emit("run_completed", payload={"artifacts": sorted(blackboard)})
         return RunResult(plan.task_id, "completed", blackboard, events)

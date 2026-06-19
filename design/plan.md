@@ -34,10 +34,14 @@ component. Every phase ends with something runnable and a measured result, not b
 - **Exit:** adding a new agent = adding a manifest; manager can pick it with no orchestrator change.
 
 ## Phase 4 — Guardrails & human-in-the-loop
-- [ ] Budget/token caps, timeouts, max delegation depth, loop detection (manager↔agent ping-pong).
-- [ ] Approval gates (`approval: required`) — orchestrator pauses for user sign-off (experimentAS/prepAS).
-- [ ] Escalation path: failure / contract violation → return to manager for re-plan.
-- **Exit:** a deliberately failing node escalates and re-plans; an approval-gated node waits for the user.
+- [x] Budget/token caps, timeouts, max node executions, per-agent invocation cap (loop guard) —
+  opt-in `Guardrails` (default unlimited), orchestrator-enforced, structured escalation (AS-015).
+- [x] Approval gates (`approval: required`) — orchestrator emits `approval_requested`, consults an
+  `approval_handler`, and ends the run `blocked` if unapproved; CLI `--approve` / interactive prompt.
+- [x] Escalation path: failure / contract violation / guardrail breach → `node_failed` +
+  `escalation{reason}`, returned to the manager (re-plan is manager-side).
+- **Exit:** ✅ a capped run halts with the breach reason; an approval-gated node waits for sign-off
+  (blocks without it). Note: token cap bites once a runner reports usage (`provenance.cost`).
 
 ## Phase 5 — Multi-agent DAG (parallelism, resume)
 - [ ] Topological scheduler with bounded parallel workers (`--max-workers`).

@@ -14,9 +14,9 @@ from pathlib import Path
 from typing import Any
 
 from agentsuite.contracts import ContractError
-from agentsuite.contracts.models import Plan
+from agentsuite.contracts.models import Node, Plan
 from agentsuite.memory import MemoryStore, ReplayResult
-from agentsuite.orchestrator import Orchestrator, RunResult
+from agentsuite.orchestrator import Guardrails, Orchestrator, RunResult
 from agentsuite.orchestrator.runner import PlanError
 from agentsuite.registry import Registry
 from agentsuite.runners import CopilotRunner, MockRunner
@@ -60,6 +60,39 @@ def result_to_dict(result: RunResult, include_events: bool) -> dict[str, Any]:
     return out
 
 
+def _guardrails_from_args(args: argparse.Namespace) -> Guardrails:
+    return Guardrails(
+        max_total_tokens=args.max_tokens,
+        max_wall_clock_s=args.max_seconds,
+        max_nodes=args.max_nodes,
+        max_agent_invocations=args.max_agent_calls,
+    )
+
+
+def _approval_handler(args: argparse.Namespace):
+    """Resolve the approval gate per node.
+
+    --approve auto-grants (automation mode); otherwise prompt the user interactively. With no
+    TTY and no --approve, approval-required nodes are denied (the orchestrator blocks the run).
+    """
+    if args.approve:
+        return lambda node: True
+
+    def prompt(node: Node) -> bool:
+        if not sys.stdin.isatty():
+            return False
+        print(
+            f"[approval] node {node.id!r} ({node.agent}, reversibility={node.reversibility}) "
+            f"requires sign-off. Approve? [y/N] ",
+            end="",
+            file=sys.stderr,
+            flush=True,
+        )
+        return sys.stdin.readline().strip().lower() in ("y", "yes")
+
+    return prompt
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     try:
         plan_dict = _load_plan_source(args)
@@ -79,6 +112,8 @@ def cmd_run(args: argparse.Namespace) -> int:
             registry=Registry.load(),
             event_sink=store.append_event if store else None,
             artifact_sink=store.put_artifact if store else None,
+            guardrails=_guardrails_from_args(args),
+            approval_handler=_approval_handler(args),
             default_workspace=args.workspace,
         )
         result = orch.run(plan)
@@ -142,6 +177,12 @@ def build_parser() -> argparse.ArgumentParser:
                      help="Invocation backend (default: copilot).")
     run.add_argument("--workspace", help="Directory workers may access (--add-dir).")
     run.add_argument("--db", help="SQLite path to persist the event log + artifacts (event-sourced run).")
+    run.add_argument("--max-tokens", type=int, help="Cap cumulative tokens across the run (guardrail).")
+    run.add_argument("--max-seconds", type=float, help="Wall-clock budget for the whole run (guardrail).")
+    run.add_argument("--max-nodes", type=int, help="Cap the number of node executions (guardrail).")
+    run.add_argument("--max-agent-calls", type=int, help="Cap invocations of any single agent (loop guard).")
+    run.add_argument("--approve", action="store_true",
+                     help="Auto-approve approval-required nodes (automation mode).")
     run.add_argument("--events", action="store_true", help="Include the full event trail in output.")
     run.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     run.set_defaults(func=cmd_run)

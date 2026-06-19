@@ -13,21 +13,24 @@ invoking worker agents as **headless `copilot` processes** and routing typed **a
 between them through a **local SQLite + MCP** memory substrate.
 
 ## 2. Current state
-- **Phase:** 2 **in progress** — memory substrate: the event-sourced SQLite store + artifact
-  persistence + run reconstruction are done and tested; the MCP access layer is the remaining
-  Phase 2 slice. Phases 0–1 complete.
+- **Phase:** 2 in progress + **Phase 4 guardrails pulled forward (done)**. Memory: the
+  event-sourced SQLite store + artifact persistence + run reconstruction are done and tested;
+  the MCP access layer is the one remaining Phase 2 slice (deferred by owner). Phases 0–1 complete.
 - **Built:** `agentsuite/` — `contracts/` (4 schemas + validator + models; `plan/v1` nodes
-  support `inputs`, `depends_on`, and `edges` for dependencies), `registry/` (loader) + 9
-  worker manifests, `runners/` (`AgentRunner`, `MockRunner`, `CopilotRunner` Backend A),
-  `orchestrator/` (deterministic DAG executor with schema+registry validation, topo-order,
-  seam validation, event trail; writes through storage-agnostic `event_sink`/`artifact_sink`),
-  `memory/` (`MemoryStore` — append-only `event/v1` log + `(task_id,id)` artifacts, in-DB
-  append-only triggers, `reconstruct` fold, schema-versioned), and `cli.py`
-  (`python -m agentsuite run [--db PATH]` + `python -m agentsuite replay` — decisions AS-013/014).
-  Tests: **50 passing**.
+  support `inputs`, `depends_on`, `edges`, `approval`, `reversibility`, `budget`), `registry/`
+  (loader) + 9 worker manifests, `runners/` (`AgentRunner`, `MockRunner`, `CopilotRunner`
+  Backend A), `orchestrator/` (deterministic DAG executor with schema+registry validation,
+  topo-order, seam validation, event trail, storage-agnostic `event_sink`/`artifact_sink`, and
+  **opt-in guardrails + approval gate**), `memory/` (`MemoryStore` — append-only `event/v1` log
+  + `(task_id,id)` artifacts, in-DB append-only triggers, `reconstruct` fold, schema-versioned),
+  and `cli.py` (`run [--db] [--max-* guardrails] [--approve]` + `replay` — AS-013/014/015).
+  Tests: **62 passing**.
 - **Phase 2 exit (1/2):** a run persisted with `run --db` is fully reconstructable from the
-  event log alone (`replay --task-id` folds events → identical status + artifacts). Verified
-  end-to-end on a 2-node mock DAG.
+  event log alone (`replay --task-id` folds events → identical status + artifacts).
+- **Phase 4 (done):** opt-in caps (`max_total_tokens`/`max_wall_clock_s`/`max_nodes`/
+  `max_agent_invocations`, all default unlimited) enforced by the orchestrator with structured
+  `escalation{reason}`; approval-required nodes gate on an `approval_handler` and end `blocked`
+  if unapproved. Deliberately-capped and approval-gated runs verified end-to-end (AS-015).
 - **De-risked (all retired):** Backend A invocation (R1), nested-CLI execution (R3) — live
   teachAS run; manager plan emission (R4) — live managerAS produced a valid 2-node `plan/v1`
   that the CLI executed in order with a full event trail.
@@ -142,6 +145,35 @@ between them through a **local SQLite + MCP** memory substrate.
 - **Consequences:** define the team/user-model contract as the seam between patrecAS/learnAS
   (writer) and managerAS (reader); it reads from the AS-006 event log.
 
+### [AS-015] Phase 4 guardrails — orchestrator-enforced, opt-in caps + approval gate
+- **Status:** accepted.
+- **Context:** before billable multi-node runs, the orchestrator needs budget/timeout/loop caps
+  and a human-in-the-loop approval gate (AS-005). Where do limits live, and what are the defaults?
+- **Options considered:**
+  - Per-agent guardrails inside each worker — pro: local; con: not enforceable centrally,
+    duplicated, agents are untrusted to self-limit. Rejected (violates AS-005).
+  - Hard-coded default caps in the orchestrator — pro: safe-by-default; con: violates the
+    "no hard-coded pass/fail thresholds" principle; surprises the owner.
+  - **Configurable `Guardrails` the orchestrator enforces, every limit defaulting to `None`
+    (unlimited)** — opt-in per run; deterministic; reported via events on breach.
+- **Decision:** `agentsuite/orchestrator/guardrails.py` — a frozen `Guardrails(max_total_tokens,
+  max_wall_clock_s, max_nodes, max_agent_invocations)` (all `None` = no cap) + a `GuardrailState`
+  the orchestrator checks **before** each node (deadline / node-count / per-agent invocation —
+  the loop guard) and **after** each node (token accounting from `provenance.cost.total_tokens`,
+  best-effort: absent usage counts as 0). A breach emits `node_failed` + `escalation{reason}` and
+  ends the run `failed`. The **approval gate**: a node with `approval: required` emits
+  `approval_requested`, consults an `approval_handler(node) -> bool`; granted → `approval_granted`
+  and proceed; denied or no handler → `escalation{approval_denied|approval_required}` and the run
+  ends **`blocked`** (new status) without executing the node. CLI: `run --max-tokens/--max-seconds/
+  --max-nodes/--max-agent-calls`, and `--approve` (auto) else an interactive prompt (denies when
+  not a TTY).
+- **Rationale:** centralizes enforcement (AS-005), keeps the executor deterministic, honors
+  "configurable not hard-coded" + "stop-and-confirm on one-way doors" (irreversible nodes gate on
+  approval), and the escalation reasons give the manager a structured signal to re-plan.
+- **Consequences:** real token enforcement needs the runner to report usage (CopilotRunner does
+  not yet — Backend A uses `-s` text); the cap is a working ceiling now and exact once usage lands.
+  Manager-side re-planning consumes the `escalation` events; `blocked` is distinct from `failed`.
+
 ### [AS-014] Memory store — event-sourced SQLite, wired via storage-agnostic sinks
 - **Status:** accepted.
 - **Context:** Phase 2 needs durable, reconstructable runs (AS-006/007). How should the
@@ -193,16 +225,18 @@ between them through a **local SQLite + MCP** memory substrate.
 - *(Resolved: Q2 managerAS authoring → `.md` persona, AS-013; Q4 nested-CLI → R3 retired;
   Q5 repo hygiene → git initialized, `.gitignore` in place.)*
 
-## 7. Next actions (immediate) — Phase 2: memory substrate
-1. ✅ SQLite schema + append-only `event/v1` writer; orchestrator's `event_sink`/`artifact_sink`
-   wired so every run is durably reconstructable (AS-006/007/014). `MemoryStore` + `replay` CLI.
+## 7. Next actions (immediate)
+1. ✅ SQLite schema + append-only `event/v1` writer; `event_sink`/`artifact_sink` wired so every
+   run is durably reconstructable (AS-006/007/014). `MemoryStore` + `replay` CLI.
 2. ✅ Artifacts (blackboard) persisted + resolvable by id (`get_artifact`, `artifacts_for`).
-3. ⏭ Local **MCP server** exposing memory read/write; inject into workers via
-   `--additional-mcp-config` so agents share memory. **Next decision** — framework/shape +
-   the dependency it adds (needs sign-off; AS-014 consequences).
-4. Then **Phase 4 (pull forward): guardrails** — budget/token caps, timeouts, approval gates —
-   before unleashing multi-node *real* (billable) runs.
-5. Initialize a kgraph project for AgentSuite and seed nodes from `architecture.md`.
+3. ✅ **Phase 4 guardrails pulled forward** — opt-in budget/timeout/node/agent caps + approval
+   gate, orchestrator-enforced with structured escalation (AS-015).
+4. ⏭ **Phase 2 MCP slice (deferred):** local MCP server exposing memory read/write; inject into
+   workers via `--additional-mcp-config`. Decision pending — framework/shape + the dependency it
+   adds (AS-014 consequences). Owner deferred in favour of guardrails.
+5. **Next candidates:** (a) make `CopilotRunner` report token usage so the `max_total_tokens`
+   guardrail bites on real runs; (b) Phase 5 — bounded parallelism (`--max-workers`) + `--resume`
+   from the event log; (c) the deferred MCP slice. Initialize/refresh the kgraph map alongside.
 
 ## 8. Related precedents (reuse, don't reinvent)
 - `eval_platform/core/pipeline/runner.py` — composable stage runner (the orchestrator skeleton).

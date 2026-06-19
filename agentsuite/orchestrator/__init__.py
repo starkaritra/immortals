@@ -8,5 +8,6 @@ later phases; the control flow here is fully deterministic.
 """
 
 from .runner import Orchestrator, RunResult
+from .guardrails import Guardrails, GuardrailBreach, ApprovalHandler
 
-__all__ = ["Orchestrator", "RunResult"]
+__all__ = ["Orchestrator", "RunResult", "Guardrails", "GuardrailBreach", "ApprovalHandler"]
