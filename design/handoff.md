@@ -13,24 +13,29 @@ invoking worker agents as **headless `copilot` processes** and routing typed **a
 between them through a **local SQLite + MCP** memory substrate.
 
 ## 2. Current state
-- **Phase:** 2 in progress + **Phase 4 guardrails pulled forward (done)**. Memory: the
+- **Phase:** 2 in progress + **Phase 4 done** + **Phase 5 `--resume` done**. Memory: the
   event-sourced SQLite store + artifact persistence + run reconstruction are done and tested;
   the MCP access layer is the one remaining Phase 2 slice (deferred by owner). Phases 0–1 complete.
 - **Built:** `agentsuite/` — `contracts/` (4 schemas + validator + models; `plan/v1` nodes
   support `inputs`, `depends_on`, `edges`, `approval`, `reversibility`, `budget`), `registry/`
   (loader) + 9 worker manifests, `runners/` (`AgentRunner`, `MockRunner`, `CopilotRunner`
-  Backend A), `orchestrator/` (deterministic DAG executor with schema+registry validation,
-  topo-order, seam validation, event trail, storage-agnostic `event_sink`/`artifact_sink`, and
-  **opt-in guardrails + approval gate**), `memory/` (`MemoryStore` — append-only `event/v1` log
-  + `(task_id,id)` artifacts, in-DB append-only triggers, `reconstruct` fold, schema-versioned),
-  and `cli.py` (`run [--db] [--max-* guardrails] [--approve]` + `replay` — AS-013/014/015).
-  Tests: **62 passing**.
+  Backend A), `orchestrator/` (deterministic DAG executor: schema+registry validation,
+  topo-order, seam validation, event trail with per-run `run_id`, storage-agnostic
+  `event_sink`/`artifact_sink`, **opt-in guardrails + approval gate**, and **`resume_from`
+  skip-completed**), `memory/` (`MemoryStore` — append-only `event/v1` log + `(task_id,id)`
+  artifacts, in-DB append-only triggers, `reconstruct` fold, schema-versioned), and `cli.py`
+  (`run [--db] [--max-* guardrails] [--approve] [--resume]` + `replay` — AS-013/014/015/016).
+  Tests: **67 passing**.
 - **Phase 2 exit (1/2):** a run persisted with `run --db` is fully reconstructable from the
   event log alone (`replay --task-id` folds events → identical status + artifacts).
 - **Phase 4 (done):** opt-in caps (`max_total_tokens`/`max_wall_clock_s`/`max_nodes`/
   `max_agent_invocations`, all default unlimited) enforced by the orchestrator with structured
   `escalation{reason}`; approval-required nodes gate on an `approval_handler` and end `blocked`
-  if unapproved. Deliberately-capped and approval-gated runs verified end-to-end (AS-015).
+  if unapproved. Verified end-to-end (AS-015).
+- **Phase 5 `--resume` (done):** `run --db --resume` seeds the blackboard from persisted
+  artifacts and skips completed nodes (`node_completed{skipped:"resumed"}`); failed nodes aren't
+  persisted so they re-run. Per-run `run_id` keeps `event_id`s unique across re-runs. Interrupt
+  (via `--max-nodes`) → resume → completion verified end-to-end (AS-016).
 - **De-risked (all retired):** Backend A invocation (R1), nested-CLI execution (R3) — live
   teachAS run; manager plan emission (R4) — live managerAS produced a valid 2-node `plan/v1`
   that the CLI executed in order with a full event trail.
@@ -145,6 +150,31 @@ between them through a **local SQLite + MCP** memory substrate.
 - **Consequences:** define the team/user-model contract as the seam between patrecAS/learnAS
   (writer) and managerAS (reader); it reads from the AS-006 event log.
 
+### [AS-016] Resume from the event log — skip already-produced nodes
+- **Status:** accepted.
+- **Context:** Phase 5 wants an interrupted multi-node run to be resumable. The Phase 2 store
+  already persists every artifact by `(task_id, id)`. How should resume decide what to skip, and
+  how do repeated runs of the same `task_id` avoid `event_id` collisions?
+- **Options considered:**
+  - Replay the event log to compute completed nodes — pro: pure event-sourcing; con: more code,
+    must reconcile partial/failed events.
+  - **Seed the blackboard from persisted artifacts; skip any node whose `produces` is present** —
+    pro: trivial, deterministic, idempotent (failed artifacts are never persisted, so only truly
+    completed nodes are skipped); con: relies on the artifacts table as the completion truth.
+- **Decision:** `Orchestrator.run(plan, resume_from=...)` seeds the blackboard with the supplied
+  artifacts; a node whose `produces` is already present is skipped with a `node_completed`
+  `{skipped: "resumed"}` event (no runner call, no budget spend, no approval re-prompt). CLI
+  `run --db PATH --resume` loads `store.artifacts_for(task_id)` as the seed (requires `--db`).
+  Each `run` now stamps a per-invocation `run_id` (uuid) into every `event_id`
+  (`{task_id}-{run_id}-{n}`) so a resumed run's events never collide with the prior run's under
+  the store's `UNIQUE(event_id)` constraint.
+- **Rationale:** reuses the persisted blackboard as the source of completion truth; failed nodes
+  aren't persisted so they correctly re-run; `run_id` keeps the append-only log unambiguous across
+  multiple runs of one task.
+- **Consequences:** partial re-runs (`--from`/`--to`) and bounded parallelism (`--max-workers`)
+  remain the rest of Phase 5. A node's output is considered done purely by artifact presence; if a
+  future need arises to force re-execution, add an explicit `--force`/node selector.
+
 ### [AS-015] Phase 4 guardrails — orchestrator-enforced, opt-in caps + approval gate
 - **Status:** accepted.
 - **Context:** before billable multi-node runs, the orchestrator needs budget/timeout/loop caps
@@ -231,12 +261,15 @@ between them through a **local SQLite + MCP** memory substrate.
 2. ✅ Artifacts (blackboard) persisted + resolvable by id (`get_artifact`, `artifacts_for`).
 3. ✅ **Phase 4 guardrails pulled forward** — opt-in budget/timeout/node/agent caps + approval
    gate, orchestrator-enforced with structured escalation (AS-015).
-4. ⏭ **Phase 2 MCP slice (deferred):** local MCP server exposing memory read/write; inject into
+4. ✅ **Phase 5 `--resume`** — `run --db --resume` skips already-completed nodes from the
+   persisted blackboard; per-run `run_id` keeps `event_id`s unique across re-runs (AS-016).
+5. ⏭ **Phase 2 MCP slice (deferred):** local MCP server exposing memory read/write; inject into
    workers via `--additional-mcp-config`. Decision pending — framework/shape + the dependency it
    adds (AS-014 consequences). Owner deferred in favour of guardrails.
-5. **Next candidates:** (a) make `CopilotRunner` report token usage so the `max_total_tokens`
-   guardrail bites on real runs; (b) Phase 5 — bounded parallelism (`--max-workers`) + `--resume`
-   from the event log; (c) the deferred MCP slice. Initialize/refresh the kgraph map alongside.
+6. **Next candidates:** (a) Phase 5 finish — bounded parallelism (`--max-workers`) over
+   independent DAG nodes + partial re-runs (`--from`/`--to`); (b) make `CopilotRunner` report
+   token usage so the `max_total_tokens` guardrail bites on real runs; (c) the deferred MCP slice.
+   Refresh the kgraph map alongside.
 
 ## 8. Related precedents (reuse, don't reinvent)
 - `eval_platform/core/pipeline/runner.py` — composable stage runner (the orchestrator skeleton).

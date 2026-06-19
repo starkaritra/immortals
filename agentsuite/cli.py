@@ -106,6 +106,9 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     runner = _make_runner(args.backend)
     store = MemoryStore(args.db) if args.db else None
+    if args.resume and not store:
+        print(json.dumps({"status": "failed", "error": "--resume requires --db (the persisted run)"}))
+        return 2
     try:
         orch = Orchestrator(
             runner=runner,
@@ -116,7 +119,8 @@ def cmd_run(args: argparse.Namespace) -> int:
             approval_handler=_approval_handler(args),
             default_workspace=args.workspace,
         )
-        result = orch.run(plan)
+        resume_from = store.artifacts_for(plan.task_id) if (args.resume and store) else None
+        result = orch.run(plan, resume_from=resume_from)
     except PlanError as exc:
         print(json.dumps({"status": "failed", "error": f"plan rejected: {exc}"}))
         return 2
@@ -183,6 +187,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--max-agent-calls", type=int, help="Cap invocations of any single agent (loop guard).")
     run.add_argument("--approve", action="store_true",
                      help="Auto-approve approval-required nodes (automation mode).")
+    run.add_argument("--resume", action="store_true",
+                     help="Skip nodes already completed in the --db store (resume an interrupted run).")
     run.add_argument("--events", action="store_true", help="Include the full event trail in output.")
     run.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     run.set_defaults(func=cmd_run)

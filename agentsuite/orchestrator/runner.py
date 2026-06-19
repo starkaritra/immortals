@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable
@@ -56,16 +57,17 @@ class Orchestrator:
 
     # -- public API --------------------------------------------------------------------
 
-    def run(self, plan: Plan | dict) -> RunResult:
+    def run(self, plan: Plan | dict, resume_from: dict[str, Artifact] | None = None) -> RunResult:
         plan = plan if isinstance(plan, Plan) else Plan.from_dict(plan)
         events: list[dict] = []
         counter = {"n": 0}
+        run_id = uuid.uuid4().hex[:12]
 
         def emit(etype: str, **fields: Any) -> None:
             counter["n"] += 1
             ev = {
                 "schema": "event/v1",
-                "event_id": f"{plan.task_id}-{counter['n']}",
+                "event_id": f"{plan.task_id}-{run_id}-{counter['n']}",
                 "task_id": plan.task_id,
                 "ts": _now(),
                 "type": etype,
@@ -77,15 +79,22 @@ class Orchestrator:
                 self.event_sink(ev)
 
         self._validate_plan(plan)
-        emit("plan_validated", payload={"nodes": len(plan.nodes)})
+        emit("plan_validated", payload={"nodes": len(plan.nodes), "run_id": run_id})
 
         order = self._topo_order(plan)
-        blackboard: dict[str, Artifact] = {}
+        # Resume: seed the blackboard with already-produced artifacts so completed nodes are skipped.
+        blackboard: dict[str, Artifact] = dict(resume_from) if resume_from else {}
         state = GuardrailState(self.guardrails)
         started_at = time.monotonic()
 
         for node_id in order:
             node = plan.node(node_id)
+
+            # Resume: a node whose output is already persisted is skipped (idempotent re-run).
+            if node.produces in blackboard:
+                emit("node_completed", node_id=node.id, agent=node.agent,
+                     payload={"skipped": "resumed"})
+                continue
 
             # Approval gate (AS-005): a node marked approval=required must be signed off first.
             if node.approval == "required":

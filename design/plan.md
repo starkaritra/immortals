@@ -45,9 +45,11 @@ component. Every phase ends with something runnable and a measured result, not b
 
 ## Phase 5 — Multi-agent DAG (parallelism, resume)
 - [ ] Topological scheduler with bounded parallel workers (`--max-workers`).
-- [ ] `--resume` from the event log (skip completed nodes); partial re-runs (`--from`/`--to` node).
+- [x] `--resume` from the event log (skip completed nodes via the persisted blackboard, AS-016);
+  per-run `run_id` keeps `event_id`s unique across re-runs. Partial re-runs (`--from`/`--to`) TODO.
 - [ ] End-to-end multi-agent task (e.g. experimentAS designs → coderAS implements → experimentAS analyzes).
-- **Exit:** a 3+ node DAG runs with parallelism and is resumable after an interrupt.
+- **Exit:** ⏳ `--resume` done (interrupt → resume completes remaining nodes, verified); bounded
+  parallelism + partial re-runs remain.
 
 ## Phase 6 — Derived memory (graph + vector)
 - [ ] Project events into the knowledge graph (extend kgraph to suite scope).
