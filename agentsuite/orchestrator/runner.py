@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 import uuid
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable
@@ -32,6 +33,15 @@ class RunResult:
     error: str | None = None
 
 
+@dataclass
+class _Failure:
+    """An internal signal that a node ended the run (failed or blocked)."""
+
+    node_id: str
+    status: str  # "failed" | "blocked"
+    error: str | None
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -45,6 +55,7 @@ class Orchestrator:
         artifact_sink: ArtifactSink | None = None,
         guardrails: Guardrails | None = None,
         approval_handler: ApprovalHandler | None = None,
+        max_workers: int = 1,
         default_workspace: str | None = None,
     ):
         self.runner = runner
@@ -53,6 +64,7 @@ class Orchestrator:
         self.artifact_sink = artifact_sink
         self.guardrails = guardrails or Guardrails()
         self.approval_handler = approval_handler
+        self.max_workers = max(1, int(max_workers))
         self.default_workspace = default_workspace
 
     # -- public API --------------------------------------------------------------------
@@ -82,21 +94,29 @@ class Orchestrator:
         emit("plan_validated", payload={"nodes": len(plan.nodes), "run_id": run_id})
 
         order = self._topo_order(plan)
+        deps = self._node_deps(plan)
         # Resume: seed the blackboard with already-produced artifacts so completed nodes are skipped.
         blackboard: dict[str, Artifact] = dict(resume_from) if resume_from else {}
         state = GuardrailState(self.guardrails)
         started_at = time.monotonic()
 
+        # Resume bookkeeping: a node whose output is already persisted is skipped (idempotent).
+        done: set[str] = set()
+        worklist: list[str] = []
         for node_id in order:
             node = plan.node(node_id)
-
-            # Resume: a node whose output is already persisted is skipped (idempotent re-run).
             if node.produces in blackboard:
                 emit("node_completed", node_id=node.id, agent=node.agent,
                      payload={"skipped": "resumed"})
-                continue
+                done.add(node_id)
+            else:
+                worklist.append(node_id)
 
-            # Approval gate (AS-005): a node marked approval=required must be signed off first.
+        # The two helpers below run on the main thread only; in the parallel path the thread pool
+        # executes nothing but ``runner.run`` — all event emission, persistence, and guardrail
+        # accounting stay single-threaded, so no shared state needs locking.
+        def gate_and_reserve(node: Node) -> _Failure | None:
+            """Approval gate (AS-005) + pre-invoke guardrail reservation (deadline/node/agent caps)."""
             if node.approval == "required":
                 emit("approval_requested", node_id=node.id, agent=node.agent,
                      payload={"reversibility": node.reversibility})
@@ -104,59 +124,130 @@ class Orchestrator:
                 if not granted:
                     reason = "approval_denied" if self.approval_handler else "approval_required"
                     emit("escalation", node_id=node.id, payload={"reason": reason})
-                    return RunResult(plan.task_id, "blocked", blackboard, events, node.id,
-                                     f"node {node.id!r} requires approval ({reason})")
+                    return _Failure(node.id, "blocked",
+                                    f"node {node.id!r} requires approval ({reason})")
                 emit("approval_granted", node_id=node.id, agent=node.agent)
-
-            # Pre-invoke guardrails (deadline / node / per-agent invocation caps).
             try:
                 state.before_node(node.agent, time.monotonic() - started_at)
             except GuardrailBreach as breach:
                 emit("node_failed", node_id=node.id, agent=node.agent,
                      payload={"error": breach.message})
                 emit("escalation", node_id=node.id, payload={"reason": breach.reason})
-                return RunResult(plan.task_id, "failed", blackboard, events, node.id, breach.message)
-
+                return _Failure(node.id, "failed", breach.message)
             emit("node_started", node_id=node.id, agent=node.agent)
-            request = self._build_request(plan, node, blackboard)
-            try:
-                artifact = self.runner.run(request)
-            except RunnerError as exc:
-                emit("node_failed", node_id=node.id, agent=node.agent, payload={"error": str(exc)})
-                emit("escalation", node_id=node.id, payload={"reason": "runner_error"})
-                return RunResult(plan.task_id, "failed", blackboard, events, node.id, str(exc))
+            return None
 
-            # Seam contract validation.
+        def finalize(node: Node, artifact: Artifact) -> _Failure | None:
+            """Seam validation + persistence + post-invoke token accounting."""
             try:
                 self._validate_seam(node, artifact)
             except ContractError as exc:
                 emit("node_failed", node_id=node.id, agent=node.agent, payload={"error": str(exc)})
                 emit("escalation", node_id=node.id, payload={"reason": "contract_violation"})
-                return RunResult(plan.task_id, "failed", blackboard, events, node.id, str(exc))
-
+                return _Failure(node.id, "failed", str(exc))
             if artifact.status == "failed":
                 emit("node_failed", node_id=node.id, agent=node.agent,
                      payload={"error": artifact.error or "agent reported failure"})
                 emit("escalation", node_id=node.id, payload={"reason": "agent_failed"})
-                return RunResult(plan.task_id, "failed", blackboard, events, node.id, artifact.error)
-
+                return _Failure(node.id, "failed", artifact.error)
             blackboard[artifact.id] = artifact
             if self.artifact_sink:
                 self.artifact_sink(artifact)
-            emit("artifact_written", node_id=node.id, agent=node.agent, payload={"artifact_id": artifact.id})
+            emit("artifact_written", node_id=node.id, agent=node.agent,
+                 payload={"artifact_id": artifact.id})
             emit("node_completed", node_id=node.id, agent=node.agent)
-
-            # Post-invoke accounting (token budget).
             try:
                 state.after_node(artifact)
             except GuardrailBreach as breach:
                 emit("node_failed", node_id=node.id, agent=node.agent,
                      payload={"error": breach.message})
                 emit("escalation", node_id=node.id, payload={"reason": breach.reason})
-                return RunResult(plan.task_id, "failed", blackboard, events, node.id, breach.message)
+                return _Failure(node.id, "failed", breach.message)
+            return None
 
+        def run_node(node: Node) -> Artifact:
+            return self.runner.run(self._build_request(plan, node, blackboard))
+
+        if self.max_workers > 1:
+            failure = self._run_parallel(plan, worklist, deps, done, emit,
+                                         gate_and_reserve, finalize, run_node)
+        else:
+            failure = self._run_sequential(plan, worklist, emit,
+                                           gate_and_reserve, finalize, run_node)
+
+        if failure is not None:
+            return RunResult(plan.task_id, failure.status, blackboard, events,
+                             failure.node_id, failure.error)
         emit("run_completed", payload={"artifacts": sorted(blackboard)})
         return RunResult(plan.task_id, "completed", blackboard, events)
+
+    # -- execution paths ---------------------------------------------------------------
+
+    def _run_sequential(self, plan, worklist, emit, gate, finalize, run_node) -> _Failure | None:
+        for node_id in worklist:
+            node = plan.node(node_id)
+            fail = gate(node)
+            if fail is not None:
+                return fail
+            try:
+                artifact = run_node(node)
+            except RunnerError as exc:
+                emit("node_failed", node_id=node.id, agent=node.agent, payload={"error": str(exc)})
+                emit("escalation", node_id=node.id, payload={"reason": "runner_error"})
+                return _Failure(node.id, "failed", str(exc))
+            fail = finalize(node, artifact)
+            if fail is not None:
+                return fail
+        return None
+
+    def _run_parallel(self, plan, worklist, deps, done, emit, gate, finalize, run_node) -> _Failure | None:
+        """Readiness scheduler: submit ready nodes (deps resolved) to a bounded thread pool.
+
+        Only ``run_node`` (the slow ``runner.run``) executes off the main thread; ``gate`` and
+        ``finalize`` are invoked here on the main thread, so the blackboard, event log, and
+        guardrail state are never touched concurrently.
+        """
+        pending: list[str] = list(worklist)
+        in_flight: dict[Future, Node] = {}
+        failure: _Failure | None = None
+        with ThreadPoolExecutor(max_workers=self.max_workers) as pool:
+            while (pending or in_flight) and failure is None:
+                # Schedule every ready node up to the worker budget (stable plan order).
+                for node_id in list(pending):
+                    if len(in_flight) >= self.max_workers:
+                        break
+                    if not deps[node_id] <= done:
+                        continue
+                    node = plan.node(node_id)
+                    fail = gate(node)  # approval + pre-invoke guardrails (main thread)
+                    pending.remove(node_id)
+                    if fail is not None:
+                        failure = fail
+                        break
+                    in_flight[pool.submit(run_node, node)] = node
+                if failure is not None:
+                    break
+                if not in_flight:
+                    break  # nothing ready and nothing running (validated DAG ⇒ no progress left)
+                completed, _ = wait(in_flight, return_when=FIRST_COMPLETED)
+                for fut in completed:
+                    node = in_flight.pop(fut)
+                    try:
+                        artifact = fut.result()
+                    except RunnerError as exc:
+                        emit("node_failed", node_id=node.id, agent=node.agent,
+                             payload={"error": str(exc)})
+                        emit("escalation", node_id=node.id, payload={"reason": "runner_error"})
+                        failure = failure or _Failure(node.id, "failed", str(exc))
+                        continue
+                    fail = finalize(node, artifact)
+                    if fail is not None:
+                        failure = failure or fail
+                    else:
+                        done.add(node.id)
+            if in_flight:
+                wait(in_flight)  # let started workers drain so threads don't outlive the run
+        return failure
 
     # -- validation & scheduling -------------------------------------------------------
 
@@ -190,20 +281,21 @@ class Orchestrator:
                         f"node {node.id!r} depends_on {dep!r}, which is not a node in the plan"
                     )
 
-    def _topo_order(self, plan: Plan) -> list[str]:
+    def _node_deps(self, plan: Plan) -> dict[str, set[str]]:
+        """Prerequisite node ids for each node: input producers + depends_on + control edges."""
         produced_by = {n.produces: n.id for n in plan.nodes}
         deps: dict[str, set[str]] = {n.id: set() for n in plan.nodes}
-        # Data dependencies: a node depends on the producers of its inputs.
         for node in plan.nodes:
             for art_id in node.inputs:
                 deps[node.id].add(produced_by[art_id])
-            # Explicit node-level dependencies.
             deps[node.id].update(node.depends_on)
-        # Explicit control edges (from -> to means "to depends on from").
         for edge in plan.edges:
             if edge.to in deps and edge.from_ in deps:
                 deps[edge.to].add(edge.from_)
+        return deps
 
+    def _topo_order(self, plan: Plan) -> list[str]:
+        deps = self._node_deps(plan)
         order: list[str] = []
         resolved: set[str] = set()
         # Stable Kahn's algorithm: preserve plan node order among ready nodes.

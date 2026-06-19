@@ -44,12 +44,14 @@ component. Every phase ends with something runnable and a measured result, not b
   (blocks without it). Note: token cap bites once a runner reports usage (`provenance.cost`).
 
 ## Phase 5 — Multi-agent DAG (parallelism, resume)
-- [ ] Topological scheduler with bounded parallel workers (`--max-workers`).
+- [x] Topological readiness scheduler with bounded parallel workers (`--max-workers`); the pool
+  runs only `runner.run` while the main thread owns all state — no locks (AS-017).
 - [x] `--resume` from the event log (skip completed nodes via the persisted blackboard, AS-016);
-  per-run `run_id` keeps `event_id`s unique across re-runs. Partial re-runs (`--from`/`--to`) TODO.
+  per-run `run_id` keeps `event_id`s unique across re-runs.
+- [ ] Partial re-runs (`--from`/`--to` node).
 - [ ] End-to-end multi-agent task (e.g. experimentAS designs → coderAS implements → experimentAS analyzes).
-- **Exit:** ⏳ `--resume` done (interrupt → resume completes remaining nodes, verified); bounded
-  parallelism + partial re-runs remain.
+- **Exit:** ⏳ parallelism + resume done (independent nodes overlap, verified by a concurrency
+  probe; interrupt → resume completes); partial re-runs + a live multi-agent run remain.
 
 ## Phase 6 — Derived memory (graph + vector)
 - [ ] Project events into the knowledge graph (extend kgraph to suite scope).

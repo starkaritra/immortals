@@ -13,29 +13,33 @@ invoking worker agents as **headless `copilot` processes** and routing typed **a
 between them through a **local SQLite + MCP** memory substrate.
 
 ## 2. Current state
-- **Phase:** 2 in progress + **Phase 4 done** + **Phase 5 `--resume` done**. Memory: the
-  event-sourced SQLite store + artifact persistence + run reconstruction are done and tested;
-  the MCP access layer is the one remaining Phase 2 slice (deferred by owner). Phases 0–1 complete.
+- **Phase:** 2 in progress + **Phase 4 done** + **Phase 5 nearly done** (resume + bounded
+  parallelism). Memory: the event-sourced SQLite store + artifact persistence + run
+  reconstruction are done and tested; the MCP access layer is the one remaining Phase 2 slice
+  (deferred by owner). Phases 0–1 complete.
 - **Built:** `agentsuite/` — `contracts/` (4 schemas + validator + models; `plan/v1` nodes
   support `inputs`, `depends_on`, `edges`, `approval`, `reversibility`, `budget`), `registry/`
   (loader) + 9 worker manifests, `runners/` (`AgentRunner`, `MockRunner`, `CopilotRunner`
   Backend A), `orchestrator/` (deterministic DAG executor: schema+registry validation,
   topo-order, seam validation, event trail with per-run `run_id`, storage-agnostic
-  `event_sink`/`artifact_sink`, **opt-in guardrails + approval gate**, and **`resume_from`
-  skip-completed**), `memory/` (`MemoryStore` — append-only `event/v1` log + `(task_id,id)`
-  artifacts, in-DB append-only triggers, `reconstruct` fold, schema-versioned), and `cli.py`
-  (`run [--db] [--max-* guardrails] [--approve] [--resume]` + `replay` — AS-013/014/015/016).
-  Tests: **67 passing**.
+  `event_sink`/`artifact_sink`, opt-in guardrails + approval gate, `resume_from` skip-completed,
+  and a **bounded-parallel readiness scheduler** `max_workers` whose pool runs only `runner.run`),
+  `memory/` (`MemoryStore` — append-only `event/v1` log + `(task_id,id)` artifacts, in-DB
+  append-only triggers, `reconstruct` fold, schema-versioned), and `cli.py`
+  (`run [--db] [--max-* guardrails] [--approve] [--resume] [--max-workers]` + `replay` —
+  AS-013/014/015/016/017). Tests: **74 passing**.
 - **Phase 2 exit (1/2):** a run persisted with `run --db` is fully reconstructable from the
   event log alone (`replay --task-id` folds events → identical status + artifacts).
 - **Phase 4 (done):** opt-in caps (`max_total_tokens`/`max_wall_clock_s`/`max_nodes`/
   `max_agent_invocations`, all default unlimited) enforced by the orchestrator with structured
   `escalation{reason}`; approval-required nodes gate on an `approval_handler` and end `blocked`
   if unapproved. Verified end-to-end (AS-015).
-- **Phase 5 `--resume` (done):** `run --db --resume` seeds the blackboard from persisted
-  artifacts and skips completed nodes (`node_completed{skipped:"resumed"}`); failed nodes aren't
-  persisted so they re-run. Per-run `run_id` keeps `event_id`s unique across re-runs. Interrupt
-  (via `--max-nodes`) → resume → completion verified end-to-end (AS-016).
+- **Phase 5 (resume + parallelism done):** `run --db --resume` seeds the blackboard from
+  persisted artifacts and skips completed nodes; per-run `run_id` keeps `event_id`s unique
+  (AS-016). `--max-workers N` overlaps independent nodes via a readiness scheduler that offloads
+  only `runner.run` to the pool (no locks); proven by a concurrency probe (peak==2 on two
+  independent nodes, ==1 sequential) with guardrails/contracts intact (AS-017). Partial re-runs
+  (`--from`/`--to`) remain.
 - **De-risked (all retired):** Backend A invocation (R1), nested-CLI execution (R3) — live
   teachAS run; manager plan emission (R4) — live managerAS produced a valid 2-node `plan/v1`
   that the CLI executed in order with a full event trail.
@@ -150,6 +154,33 @@ between them through a **local SQLite + MCP** memory substrate.
 - **Consequences:** define the team/user-model contract as the seam between patrecAS/learnAS
   (writer) and managerAS (reader); it reads from the AS-006 event log.
 
+### [AS-017] Bounded parallel execution — readiness scheduler, main-thread orchestration
+- **Status:** accepted.
+- **Context:** Phase 5 wants independent DAG nodes to run concurrently (`--max-workers`) without
+  sacrificing the deterministic event log, seam validation, guardrails, or thread-safety.
+- **Options considered:**
+  - Level-by-level "wave" scheduling (barrier per topo level) — pro: simplest; con: a slow node
+    in a level stalls independent ready nodes in the next level (suboptimal).
+  - Full readiness scheduler with locks around shared state (blackboard/events/guardrails) — pro:
+    maximal overlap; con: lock-heavy, easy to get wrong, hard to keep the log deterministic.
+  - **Readiness scheduler where the thread pool runs *only* `runner.run`** — the main thread
+    schedules ready nodes (deps resolved), submits the slow runner call to a `ThreadPoolExecutor`,
+    and performs all gating/validation/persistence/guardrail accounting itself as futures complete.
+- **Decision:** the third option. `Orchestrator(max_workers=N)`; `max_workers==1` keeps the exact
+  sequential path (zero behaviour change). For `N>1`, `_run_parallel` submits ready nodes up to `N`
+  and, as each future completes, runs `finalize` on the main thread. Because workers touch nothing
+  but their own `runner.run`, **no shared state is concurrently mutated — no locks needed.**
+  Approval prompts and pre-invoke guardrail reservations happen on the main thread before submit;
+  on any failure, scheduling stops, in-flight workers drain, and the first failure is reported.
+  CLI: `run --max-workers N`.
+- **Rationale:** real overlap of independent nodes (proven by a concurrency-probe test: peak==2 on
+  two independent nodes, ==1 at `max_workers=1`) with the single-threaded-orchestrator invariant
+  intact, so the event log, contracts, and guardrails behave identically to the sequential path.
+- **Consequences:** `runner` implementations must be safe to call concurrently (CopilotRunner is —
+  stateless subprocess spawns). Event interleave across nodes is non-deterministic by nature, but
+  per-node order and run reconstruction are unaffected. Partial re-runs (`--from`/`--to`) remain
+  the last Phase 5 item.
+
 ### [AS-016] Resume from the event log — skip already-produced nodes
 - **Status:** accepted.
 - **Context:** Phase 5 wants an interrupted multi-node run to be resumable. The Phase 2 store
@@ -261,15 +292,16 @@ between them through a **local SQLite + MCP** memory substrate.
 2. ✅ Artifacts (blackboard) persisted + resolvable by id (`get_artifact`, `artifacts_for`).
 3. ✅ **Phase 4 guardrails pulled forward** — opt-in budget/timeout/node/agent caps + approval
    gate, orchestrator-enforced with structured escalation (AS-015).
-4. ✅ **Phase 5 `--resume`** — `run --db --resume` skips already-completed nodes from the
-   persisted blackboard; per-run `run_id` keeps `event_id`s unique across re-runs (AS-016).
+4. ✅ **Phase 5 `--resume` + bounded parallelism** — `run --db --resume` skips already-completed
+   nodes (AS-016); `run --max-workers N` overlaps independent nodes via a no-lock readiness
+   scheduler (AS-017). Partial re-runs (`--from`/`--to`) remain.
 5. ⏭ **Phase 2 MCP slice (deferred):** local MCP server exposing memory read/write; inject into
    workers via `--additional-mcp-config`. Decision pending — framework/shape + the dependency it
    adds (AS-014 consequences). Owner deferred in favour of guardrails.
-6. **Next candidates:** (a) Phase 5 finish — bounded parallelism (`--max-workers`) over
-   independent DAG nodes + partial re-runs (`--from`/`--to`); (b) make `CopilotRunner` report
-   token usage so the `max_total_tokens` guardrail bites on real runs; (c) the deferred MCP slice.
-   Refresh the kgraph map alongside.
+6. **Next candidates:** (a) make `CopilotRunner` report token usage (parse `--output-format json`)
+   so the `max_total_tokens` guardrail bites on real runs; (b) Phase 5 finish — partial re-runs
+   (`--from`/`--to`) + a live multi-agent end-to-end run; (c) the deferred MCP slice. Refresh the
+   kgraph map alongside.
 
 ## 8. Related precedents (reuse, don't reinvent)
 - `eval_platform/core/pipeline/runner.py` — composable stage runner (the orchestrator skeleton).

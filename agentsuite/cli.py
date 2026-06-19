@@ -117,6 +117,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             artifact_sink=store.put_artifact if store else None,
             guardrails=_guardrails_from_args(args),
             approval_handler=_approval_handler(args),
+            max_workers=args.max_workers,
             default_workspace=args.workspace,
         )
         resume_from = store.artifacts_for(plan.task_id) if (args.resume and store) else None
@@ -189,6 +190,8 @@ def build_parser() -> argparse.ArgumentParser:
                      help="Auto-approve approval-required nodes (automation mode).")
     run.add_argument("--resume", action="store_true",
                      help="Skip nodes already completed in the --db store (resume an interrupted run).")
+    run.add_argument("--max-workers", type=int, default=1,
+                     help="Run independent DAG nodes concurrently, up to this many (default 1 = sequential).")
     run.add_argument("--events", action="store_true", help="Include the full event trail in output.")
     run.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     run.set_defaults(func=cmd_run)
