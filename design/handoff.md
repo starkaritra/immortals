@@ -13,39 +13,35 @@ invoking worker agents as **headless `copilot` processes** and routing typed **a
 between them through a **local SQLite + MCP** memory substrate.
 
 ## 2. Current state
-- **Phase:** 2 in progress + **Phase 4 done** + **Phase 5 nearly done** (resume + bounded
-  parallelism). Memory: the event-sourced SQLite store + artifact persistence + run
-  reconstruction are done and tested; the MCP access layer is the one remaining Phase 2 slice
+- **Phase:** 2 in progress + **Phase 4 done** + **Phase 5 DONE** (resume, bounded parallelism,
+  partial re-runs, live multi-agent run). The MCP access layer is the one remaining Phase 2 slice
   (deferred by owner). Phases 0–1 complete.
 - **Built:** `agentsuite/` — `contracts/` (4 schemas + validator + models; `plan/v1` nodes
   support `inputs`, `depends_on`, `edges`, `approval`, `reversibility`, `budget`), `registry/`
   (loader) + 9 worker manifests, `runners/` (`AgentRunner`, `MockRunner`, `CopilotRunner`
-  Backend A), `orchestrator/` (deterministic DAG executor: schema+registry validation,
-  topo-order, seam validation, event trail with per-run `run_id`, storage-agnostic
-  `event_sink`/`artifact_sink`, opt-in guardrails + approval gate, `resume_from` skip-completed,
-  and a **bounded-parallel readiness scheduler** `max_workers` whose pool runs only `runner.run`),
-  `memory/` (`MemoryStore` — append-only `event/v1` log + `(task_id,id)` artifacts, in-DB
-  append-only triggers, `reconstruct` fold, schema-versioned), and `cli.py`
-  (`run [--db] [--max-* guardrails] [--approve] [--resume] [--max-workers]` + `replay` —
-  AS-013/014/015/016/017/018). `CopilotRunner` parses `--output-format json` and reports real
-  usage (`cost.total_tokens`). Tests: **80 passing**.
+  Backend A — parses `--output-format json`, reports `cost.total_tokens`), `orchestrator/`
+  (deterministic DAG executor: schema+registry validation, topo-order, seam validation, event
+  trail with per-run `run_id`, storage-agnostic `event_sink`/`artifact_sink`, opt-in guardrails +
+  approval gate, `resume_from` skip-completed, bounded-parallel readiness scheduler `max_workers`,
+  and `from_node`/`to_node` partial re-runs), `memory/` (`MemoryStore` — append-only `event/v1`
+  log + `(task_id,id)` artifacts, in-DB append-only triggers, `reconstruct` fold, schema-versioned),
+  and `cli.py` (`run [--db] [--max-* guardrails] [--approve] [--resume] [--max-workers]
+  [--from] [--to]` + `replay` — AS-013..019). Tests: **90 passing**.
 - **Phase 2 exit (1/2):** a run persisted with `run --db` is fully reconstructable from the
   event log alone (`replay --task-id` folds events → identical status + artifacts).
 - **Phase 4 (done):** opt-in caps (`max_total_tokens`/`max_wall_clock_s`/`max_nodes`/
   `max_agent_invocations`, all default unlimited) enforced by the orchestrator with structured
   `escalation{reason}`; approval-required nodes gate on an `approval_handler` and end `blocked`
   if unapproved. Verified end-to-end (AS-015).
-- **Phase 5 (resume + parallelism done):** `run --db --resume` seeds the blackboard from
-  persisted artifacts and skips completed nodes; per-run `run_id` keeps `event_id`s unique
-  (AS-016). `--max-workers N` overlaps independent nodes via a readiness scheduler that offloads
-  only `runner.run` to the pool (no locks); proven by a concurrency probe (peak==2 on two
-  independent nodes, ==1 sequential) with guardrails/contracts intact (AS-017). Partial re-runs
-  (`--from`/`--to`) remain.
+- **Phase 5 (DONE):** `--resume` skips completed nodes (AS-016); `--max-workers N` overlaps
+  independent nodes via a no-lock readiness scheduler (AS-017); `--from`/`--to` execute a selected
+  sub-graph sourcing the rest from the store (AS-019). **Live multi-agent run verified:**
+  experimentAS → teachAS with real data flow, token usage, and a reconstructable event log.
 - **De-risked (all retired):** Backend A invocation (R1), nested-CLI execution (R3) — live
   teachAS run; manager plan emission (R4) — live managerAS produced a valid 2-node `plan/v1`
-  that the CLI executed in order with a full event trail. **Usage/cost (R2 partial):**
-  `CopilotRunner` now parses `--output-format json` and reports `cost.total_tokens` (summed output
-  tokens) — verified live, and a real run under `--max-tokens 1` trips `token_budget_exceeded` (AS-018).
+  that the CLI executed in order with a full event trail. **Usage/cost (R2 mitigating):**
+  `CopilotRunner` reports `cost.total_tokens`; a real run under `--max-tokens 1` trips
+  `token_budget_exceeded` (AS-018).
 - **managerAS authored & wired:** `~/.copilot/agents/managerAS.md` (user-agnostic; three
   layers; execution model = "managerAS in the loop", invokes the CLI seam).
 - **Topology settled (AS-013):** manager is the interactive driver; orchestrator is a tool it
@@ -156,6 +152,24 @@ between them through a **local SQLite + MCP** memory substrate.
   over the event-log substrate).
 - **Consequences:** define the team/user-model contract as the seam between patrecAS/learnAS
   (writer) and managerAS (reader); it reads from the AS-006 event log.
+
+### [AS-019] Partial re-runs — execute a selected sub-graph (`--from` / `--to`)
+- **Status:** accepted.
+- **Context:** Phase 5's last item: re-run only part of a DAG (e.g. after editing one node's
+  prompt) without recomputing the whole plan, reusing persisted upstream artifacts.
+- **Decision:** `run(plan, from_node=…, to_node=…)` computes a **selection** = descendants-of-`from`
+  ∩ ancestors-of-`to` (either bound optional). Selected nodes are **force-run** (never resume-skipped,
+  so editing + re-running recomputes them); non-selected nodes are treated as resolved and their
+  outputs are sourced from the seeded store. Before executing, every selected node's data inputs are
+  validated to be either produced by another selected node or present in the seed — otherwise a
+  `PlanError` tells the user to widen the slice or run upstream first. A `decision` event records the
+  selection. CLI: `run --from NODE` / `--to NODE`; `--from` requires `--db` (needs upstream
+  artifacts); `--to`-only needs no store (all ancestors are in-slice). Re-running overwrites the
+  artifact in the store (upsert), so partial re-runs are idempotent and update-in-place.
+- **Rationale:** turns the event-sourced store + readiness scheduler into a precise re-execution
+  tool; the ancestor/descendant intersection is the standard build-system slice semantics.
+- **Consequences:** Phase 5 is complete. Verified: `--to left` runs {root,left}; `--from left` runs
+  {left,sink} sourcing `right.art` from the store; re-run overwrites only the selected artifact.
 
 ### [AS-018] CopilotRunner reports usage — JSON output, summed output tokens
 - **Status:** accepted.
@@ -326,9 +340,13 @@ between them through a **local SQLite + MCP** memory substrate.
    adds (AS-014 consequences). Owner deferred in favour of guardrails.
 6. ✅ **Real usage/cost** — `CopilotRunner` parses `--output-format json` and reports
    `cost.total_tokens`; the `max_total_tokens` guardrail now bites on real runs (AS-018).
-7. **Next candidates:** (a) Phase 5 finish — partial re-runs (`--from`/`--to`) + a live multi-agent
-   end-to-end run; (b) the deferred memory MCP slice; (c) result caching keyed on the provenance
-   hash (handoff §4). Refresh the kgraph map alongside.
+7. ✅ **Phase 5 complete** — partial re-runs (`--from`/`--to`, AS-019) + a verified live 2-agent
+   end-to-end run (experimentAS → teachAS).
+8. **Next candidates:** (a) the deferred **memory MCP slice** (Phase 2's remainder) — local MCP
+   server exposing memory read/write, injected into workers via `--additional-mcp-config`;
+   (b) **result caching** keyed on the provenance hash (handoff §4) to cut cost on re-runs;
+   (c) **Phase 3 routing** — managerAS routes by matching task requirements to manifests;
+   (d) **Phase 6** — derived memory (graph + vector retrieval). Refresh the kgraph map alongside.
 
 ## 8. Related precedents (reuse, don't reinvent)
 - `eval_platform/core/pipeline/runner.py` — composable stage runner (the orchestrator skeleton).

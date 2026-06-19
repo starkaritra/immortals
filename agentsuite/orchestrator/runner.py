@@ -69,7 +69,13 @@ class Orchestrator:
 
     # -- public API --------------------------------------------------------------------
 
-    def run(self, plan: Plan | dict, resume_from: dict[str, Artifact] | None = None) -> RunResult:
+    def run(
+        self,
+        plan: Plan | dict,
+        resume_from: dict[str, Artifact] | None = None,
+        from_node: str | None = None,
+        to_node: str | None = None,
+    ) -> RunResult:
         plan = plan if isinstance(plan, Plan) else Plan.from_dict(plan)
         events: list[dict] = []
         counter = {"n": 0}
@@ -95,22 +101,40 @@ class Orchestrator:
 
         order = self._topo_order(plan)
         deps = self._node_deps(plan)
-        # Resume: seed the blackboard with already-produced artifacts so completed nodes are skipped.
+        # Resume / partial re-run: seed the blackboard with already-produced artifacts.
         blackboard: dict[str, Artifact] = dict(resume_from) if resume_from else {}
         state = GuardrailState(self.guardrails)
         started_at = time.monotonic()
 
-        # Resume bookkeeping: a node whose output is already persisted is skipped (idempotent).
         done: set[str] = set()
         worklist: list[str] = []
-        for node_id in order:
-            node = plan.node(node_id)
-            if node.produces in blackboard:
-                emit("node_completed", node_id=node.id, agent=node.agent,
-                     payload={"skipped": "resumed"})
-                done.add(node_id)
-            else:
-                worklist.append(node_id)
+        if from_node is not None or to_node is not None:
+            # Partial re-run: execute only the selected sub-graph; force-run it (no resume-skip).
+            selection = self._select_nodes(plan, deps, from_node, to_node)
+            produced_in_sel = {plan.node(n).produces for n in selection}
+            for nid in selection:
+                for art_id in plan.node(nid).inputs:
+                    if art_id not in blackboard and art_id not in produced_in_sel:
+                        raise PlanError(
+                            f"partial re-run of {nid!r} needs input {art_id!r}, which is neither "
+                            f"in the seeded store nor produced by a selected node; widen --from/--to "
+                            f"or run the upstream nodes first"
+                        )
+            emit("decision", payload={"partial_run": {
+                "from": from_node, "to": to_node, "selected": sorted(selection)}})
+            # Non-selected nodes are out of scope: treat them as resolved (deps satisfied from store).
+            done = {n.id for n in plan.nodes if n.id not in selection}
+            worklist = [n for n in order if n in selection]
+        else:
+            # Resume bookkeeping: a node whose output is already persisted is skipped (idempotent).
+            for node_id in order:
+                node = plan.node(node_id)
+                if node.produces in blackboard:
+                    emit("node_completed", node_id=node.id, agent=node.agent,
+                         payload={"skipped": "resumed"})
+                    done.add(node_id)
+                else:
+                    worklist.append(node_id)
 
         # The two helpers below run on the main thread only; in the parallel path the thread pool
         # executes nothing but ``runner.run`` — all event emission, persistence, and guardrail
@@ -293,6 +317,42 @@ class Orchestrator:
             if edge.to in deps and edge.from_ in deps:
                 deps[edge.to].add(edge.from_)
         return deps
+
+    def _select_nodes(self, plan: Plan, deps: dict[str, set[str]],
+                      from_node: str | None, to_node: str | None) -> set[str]:
+        """Nodes to execute for a partial re-run: descendants of ``from`` ∩ ancestors of ``to``."""
+        node_ids = {n.id for n in plan.nodes}
+        for label, nid in (("--from", from_node), ("--to", to_node)):
+            if nid is not None and nid not in node_ids:
+                raise PlanError(f"{label} references {nid!r}, which is not a node in the plan")
+
+        dependents: dict[str, set[str]] = {n.id: set() for n in plan.nodes}
+        for nid, prereqs in deps.items():
+            for dep in prereqs:
+                dependents[dep].add(nid)
+
+        def _reach(start: str, adjacency: dict[str, set[str]]) -> set[str]:
+            seen = {start}
+            stack = [start]
+            while stack:
+                cur = stack.pop()
+                for nxt in adjacency[cur]:
+                    if nxt not in seen:
+                        seen.add(nxt)
+                        stack.append(nxt)
+            return seen
+
+        selection = set(node_ids)
+        if from_node is not None:
+            selection &= _reach(from_node, dependents)   # from + everything downstream
+        if to_node is not None:
+            selection &= _reach(to_node, deps)            # to + everything upstream
+        if not selection:
+            raise PlanError(
+                f"no nodes selected by --from={from_node!r}/--to={to_node!r} "
+                f"(no dependency path connects them)"
+            )
+        return selection
 
     def _topo_order(self, plan: Plan) -> list[str]:
         deps = self._node_deps(plan)

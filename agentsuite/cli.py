@@ -109,6 +109,11 @@ def cmd_run(args: argparse.Namespace) -> int:
     if args.resume and not store:
         print(json.dumps({"status": "failed", "error": "--resume requires --db (the persisted run)"}))
         return 2
+    partial = bool(args.from_node or args.to_node)
+    if args.from_node and not store:
+        print(json.dumps({"status": "failed",
+                          "error": "--from requires --db to source upstream artifacts"}))
+        return 2
     try:
         orch = Orchestrator(
             runner=runner,
@@ -120,8 +125,9 @@ def cmd_run(args: argparse.Namespace) -> int:
             max_workers=args.max_workers,
             default_workspace=args.workspace,
         )
-        resume_from = store.artifacts_for(plan.task_id) if (args.resume and store) else None
-        result = orch.run(plan, resume_from=resume_from)
+        seed = store.artifacts_for(plan.task_id) if (store and (args.resume or partial)) else None
+        result = orch.run(plan, resume_from=seed,
+                          from_node=args.from_node, to_node=args.to_node)
     except PlanError as exc:
         print(json.dumps({"status": "failed", "error": f"plan rejected: {exc}"}))
         return 2
@@ -192,6 +198,10 @@ def build_parser() -> argparse.ArgumentParser:
                      help="Skip nodes already completed in the --db store (resume an interrupted run).")
     run.add_argument("--max-workers", type=int, default=1,
                      help="Run independent DAG nodes concurrently, up to this many (default 1 = sequential).")
+    run.add_argument("--from", dest="from_node", metavar="NODE",
+                     help="Partial re-run: execute NODE and everything downstream (needs --db for upstream).")
+    run.add_argument("--to", dest="to_node", metavar="NODE",
+                     help="Partial re-run: execute only NODE and its upstream dependencies.")
     run.add_argument("--events", action="store_true", help="Include the full event trail in output.")
     run.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     run.set_defaults(func=cmd_run)

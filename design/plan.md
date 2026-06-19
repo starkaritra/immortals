@@ -43,15 +43,18 @@ component. Every phase ends with something runnable and a measured result, not b
 - **Exit:** ✅ a capped run halts with the breach reason; an approval-gated node waits for sign-off
   (blocks without it). Note: token cap bites once a runner reports usage (`provenance.cost`).
 
-## Phase 5 — Multi-agent DAG (parallelism, resume)
+## Phase 5 — Multi-agent DAG (parallelism, resume) — DONE
 - [x] Topological readiness scheduler with bounded parallel workers (`--max-workers`); the pool
   runs only `runner.run` while the main thread owns all state — no locks (AS-017).
 - [x] `--resume` from the event log (skip completed nodes via the persisted blackboard, AS-016);
   per-run `run_id` keeps `event_id`s unique across re-runs.
-- [ ] Partial re-runs (`--from`/`--to` node).
-- [ ] End-to-end multi-agent task (e.g. experimentAS designs → coderAS implements → experimentAS analyzes).
-- **Exit:** ⏳ parallelism + resume done (independent nodes overlap, verified by a concurrency
-  probe; interrupt → resume completes); partial re-runs + a live multi-agent run remain.
+- [x] Partial re-runs (`--from`/`--to`): execute the descendants-of-from ∩ ancestors-of-to slice,
+  force-run it, source the rest from the store (AS-019).
+- [x] End-to-end multi-agent task — live: experimentAS designs a tiny experiment → teachAS explains
+  it from the upstream artifact; status completed, data flow + token usage + event log verified,
+  run reconstructable via `replay`.
+- **Exit:** ✅ a 3+ node DAG runs with parallelism, is resumable after an interrupt, supports
+  partial re-runs, and a real 2-agent run completed end-to-end.
 
 ## Phase 6 — Derived memory (graph + vector)
 - [ ] Project events into the knowledge graph (extend kgraph to suite scope).
