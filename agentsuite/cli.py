@@ -35,9 +35,21 @@ def _load_plan_source(args: argparse.Namespace) -> dict[str, Any]:
     return json.loads(text)
 
 
-def _make_runner(backend: str) -> AgentRunner:
+def _memory_mcp_config(db_path: str) -> str:
+    """JSON for `--additional-mcp-config`: a memory MCP server bound to this run's store (AS-021)."""
+    config = {"mcpServers": {"agentsuite_memory": {
+        "type": "local",
+        "command": sys.executable,
+        "args": ["-m", "agentsuite.memory.mcp_server", "--db", str(Path(db_path).resolve())],
+        "tools": ["*"],
+    }}}
+    return json.dumps(config)
+
+
+def _make_runner(backend: str, mcp_config: str | None = None,
+                 env_extra: dict[str, str] | None = None) -> AgentRunner:
     if backend == "copilot":
-        return CopilotRunner(allow_all_tools=True)
+        return CopilotRunner(allow_all_tools=True, mcp_config=mcp_config, env_extra=env_extra)
     if backend == "mock":
         return MockRunner()
     raise SystemExit(f"error: unknown backend {backend!r}")
@@ -104,16 +116,21 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(json.dumps({"status": "failed", "error": f"plan/v1 invalid: {exc}"}))
         return 2
 
-    runner = _make_runner(args.backend)
     store = MemoryStore(args.db) if args.db else None
     if args.resume and not store:
         print(json.dumps({"status": "failed", "error": "--resume requires --db (the persisted run)"}))
+        return 2
+    if args.share_memory and not args.db:
+        print(json.dumps({"status": "failed", "error": "--share-memory requires --db"}))
         return 2
     partial = bool(args.from_node or args.to_node)
     if args.from_node and not store:
         print(json.dumps({"status": "failed",
                           "error": "--from requires --db to source upstream artifacts"}))
         return 2
+    mcp_config = _memory_mcp_config(args.db) if (args.share_memory and args.db) else None
+    env_extra = {"AGENTSUITE_MEMORY_DB": str(Path(args.db).resolve())} if (args.share_memory and args.db) else None
+    runner = _make_runner(args.backend, mcp_config=mcp_config, env_extra=env_extra)
     try:
         orch = Orchestrator(
             runner=runner,
@@ -204,6 +221,8 @@ def build_parser() -> argparse.ArgumentParser:
                      help="Invocation backend (default: copilot).")
     run.add_argument("--workspace", help="Directory workers may access (--add-dir).")
     run.add_argument("--db", help="SQLite path to persist the event log + artifacts (event-sourced run).")
+    run.add_argument("--share-memory", action="store_true",
+                     help="Inject a memory MCP server (bound to --db) into workers so they share memory.")
     run.add_argument("--max-tokens", type=int, help="Cap cumulative tokens across the run (guardrail).")
     run.add_argument("--max-seconds", type=float, help="Wall-clock budget for the whole run (guardrail).")
     run.add_argument("--max-nodes", type=int, help="Cap the number of node executions (guardrail).")

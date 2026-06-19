@@ -20,13 +20,17 @@ component. Every phase ends with something runnable and a measured result, not b
 - **Exit:** ✅ **Phase 1 done.** A live managerAS planning call emitted a valid 2-node `plan/v1`; the CLI executed it in dependency order with a full event trail. Backend A proven on a real worker run.
 
 ## Phase 2 — Memory substrate (event log + MCP)
-- [x] SQLite schema: `events` (append-only, in-DB triggers) + `artifacts` projection table.
-- [x] Event-sourcing writer; orchestrator emits an event per invocation/decision/escalation via
-  storage-agnostic `event_sink`/`artifact_sink` (`MemoryStore`, AS-014). `run --db` + `replay` CLI.
-- [ ] Local **MCP server** exposing memory read/write; inject into workers via `--additional-mcp-config`.
+- [x] SQLite schema: `events` (append-only, in-DB triggers) + `artifacts` + `notes` KV (schema v2).
+- [x] Event-sourcing writer via storage-agnostic `event_sink`/`artifact_sink` (`MemoryStore`, AS-014);
+  `run --db` + `replay` CLI.
+- [x] Local **MCP server** (`agentsuite/memory/mcp_server.py`, zero-dep stdio JSON-RPC) exposing
+  artifact/event reads + a shared `notes` KV; injected via `run --share-memory`
+  (`--additional-mcp-config` + `AGENTSUITE_MEMORY_DB` env). Server verified live (default agent
+  wrote a note); **custom-agent exposure needs a one-time persistent `copilot mcp add`** — a CLI
+  constraint, not a code gap (AS-021).
 - [x] Blackboard: artifacts persisted + resolvable by id across nodes/runs.
-- **Exit:** ✅ a run is fully reconstructable from the event log (`replay` folds events → status +
-  artifacts); ⏭ workers sharing memory via MCP is the remaining slice.
+- **Exit:** ✅ a run is fully reconstructable from the event log; ✅ the memory MCP server works
+  (default agent live); ⏭ custom-agent worker sharing pends the documented persistent registration.
 
 ## Phase 3 — Routing & registry — DONE
 - [x] Registry-driven routing: `Registry.route(need)` ranks manifests deterministically; CLI
@@ -90,6 +94,7 @@ component. Every phase ends with something runnable and a measured result, not b
 | R4 | Manager reliably emits schema-valid plans | **Retired** | Live managerAS planning call emitted a valid 2-node `plan/v1`; `depends_on` made first-class to match its natural output; reject-and-retry still available |
 | R5 | Memory-poisoning / stale facts across runs | Open | Provenance on every fact; supersede edges; injection containment |
 | R6 | Backend C migration stays cheap | Mitigated by design | `AgentRunner` seam keeps plan/memory/registry invocation-agnostic |
+| R7 | Custom-agent workers can't see injected MCP tools (CLI behavior) | Open | Server + env-resolved db built; deliver via one-time persistent `copilot mcp add` (the kgraph channel); orchestrator stays the central store writer meanwhile (AS-021) |
 
 ## Definition of Done (per task, coderAS bar)
 Code runs · tests pass · result measured & logged (event log) · `architecture.md` + `handoff.md`

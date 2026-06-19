@@ -15,12 +15,31 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Callable
 
 from agentsuite.contracts import validate
 from agentsuite.contracts.models import Artifact
 
-SCHEMA_VERSION = 1
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+SCHEMA_VERSION = 2
+
+# A free-form key/value scratchpad workers share through the MCP server (AS-021); the KV
+# read-model of AS-006. Split out so it can also be applied as a v1 → v2 migration.
+_NOTES_SCHEMA = """
+CREATE TABLE IF NOT EXISTS notes (
+    task_id TEXT NOT NULL,
+    key     TEXT NOT NULL,
+    agent   TEXT,
+    value   TEXT NOT NULL,
+    ts      TEXT,
+    PRIMARY KEY (task_id, key)
+);
+"""
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS events (
@@ -55,7 +74,7 @@ CREATE TRIGGER IF NOT EXISTS events_no_update BEFORE UPDATE ON events
 BEGIN SELECT RAISE(ABORT, 'events is append-only'); END;
 CREATE TRIGGER IF NOT EXISTS events_no_delete BEFORE DELETE ON events
 BEGIN SELECT RAISE(ABORT, 'events is append-only'); END;
-"""
+""" + _NOTES_SCHEMA
 
 
 @dataclass
@@ -80,18 +99,26 @@ class MemoryStore:
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA foreign_keys=ON")
+        # The orchestrator and worker MCP servers may open the same file concurrently (WAL allows
+        # one writer + many readers); wait rather than fail immediately on a held write lock.
+        self._conn.execute("PRAGMA busy_timeout=5000")
         self._migrate()
 
     def _migrate(self) -> None:
         current = self._conn.execute("PRAGMA user_version").fetchone()[0]
         if current == 0:
             self._conn.executescript(_SCHEMA)
+        elif current < SCHEMA_VERSION:
+            # Incremental upgrades from older on-disk schemas.
+            if current < 2:
+                self._conn.executescript(_NOTES_SCHEMA)
+        elif current > SCHEMA_VERSION:
+            raise RuntimeError(
+                f"store schema version {current} > supported {SCHEMA_VERSION}; upgrade agentsuite"
+            )
+        if current != SCHEMA_VERSION:
             self._conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
             self._conn.commit()
-        elif current != SCHEMA_VERSION:
-            raise RuntimeError(
-                f"store schema version {current} != supported {SCHEMA_VERSION}; migration required"
-            )
 
     # -- context management -------------------------------------------------------------
 
@@ -152,6 +179,31 @@ class MemoryStore:
             ),
         )
         self._conn.commit()
+
+    def put_note(self, task_id: str, key: str, value: object, agent: str | None = None) -> None:
+        """Write a shared note (KV) for a task; the worker scratchpad behind the MCP server."""
+        self._conn.execute(
+            "INSERT INTO notes (task_id, key, agent, value, ts) VALUES (?, ?, ?, ?, ?) "
+            "ON CONFLICT(task_id, key) DO UPDATE SET agent=excluded.agent, value=excluded.value, "
+            "ts=excluded.ts",
+            (task_id, key, agent, json.dumps(value), _utc_now()),
+        )
+        self._conn.commit()
+
+    def get_note(self, task_id: str, key: str) -> object | None:
+        row = self._conn.execute(
+            "SELECT value FROM notes WHERE task_id = ? AND key = ?", (task_id, key)
+        ).fetchone()
+        return json.loads(row["value"]) if row else None
+
+    def notes_for(self, task_id: str) -> dict[str, dict]:
+        rows = self._conn.execute(
+            "SELECT key, agent, value, ts FROM notes WHERE task_id = ? ORDER BY key", (task_id,)
+        ).fetchall()
+        return {
+            r["key"]: {"value": json.loads(r["value"]), "agent": r["agent"], "ts": r["ts"]}
+            for r in rows
+        }
 
     # -- read models --------------------------------------------------------------------
 

@@ -14,6 +14,7 @@ injection.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from datetime import datetime, timezone
@@ -39,12 +40,19 @@ class CopilotRunner(AgentRunner):
         model: str | None = None,
         extra_args: list[str] | None = None,
         default_timeout_s: int = 600,
+        mcp_config: str | None = None,
+        env_extra: dict[str, str] | None = None,
     ):
         self.executable = executable
         self.allow_all_tools = allow_all_tools
         self.model = model
         self.extra_args = list(extra_args or [])
         self.default_timeout_s = default_timeout_s
+        # JSON string or "@file" passed to `--additional-mcp-config` so workers share memory (AS-021).
+        self.mcp_config = mcp_config
+        # Extra environment for the worker (e.g. AGENTSUITE_MEMORY_DB for a persistently-registered
+        # memory MCP server to resolve this run's store).
+        self.env_extra = dict(env_extra or {})
 
     # -- prompt assembly ---------------------------------------------------------------
 
@@ -73,6 +81,8 @@ class CopilotRunner(AgentRunner):
                "--output-format", "json", "--no-ask-user"]
         if self.allow_all_tools:
             cmd.append("--allow-all-tools")
+        if self.mcp_config:
+            cmd += ["--additional-mcp-config", self.mcp_config]
         if request.workspace:
             cmd += ["--add-dir", request.workspace]
         if self.model:
@@ -147,6 +157,7 @@ class CopilotRunner(AgentRunner):
         prompt = self._compose_prompt(request)
         cmd = self._build_command(request, prompt)
         timeout = request.timeout_s or self.default_timeout_s
+        env = {**os.environ, **self.env_extra} if self.env_extra else None
         started = _now()
         try:
             proc = subprocess.run(
@@ -157,6 +168,7 @@ class CopilotRunner(AgentRunner):
                 errors="replace",
                 timeout=timeout,
                 cwd=request.workspace or None,
+                env=env,
             )
         except subprocess.TimeoutExpired as exc:
             raise RunnerError(f"agent {request.agent!r} timed out after {timeout}s") from exc

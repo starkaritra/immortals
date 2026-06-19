@@ -13,29 +13,29 @@ invoking worker agents as **headless `copilot` processes** and routing typed **a
 between them through a **local SQLite + MCP** memory substrate.
 
 ## 2. Current state
-- **Phase:** 2 in progress + **Phases 3, 4, 5 DONE** (routing, guardrails, resume/parallelism/
-  partial re-runs). The MCP access layer is the one remaining Phase 2 slice (deferred by owner).
-  Phases 0–1 complete.
+- **Phase:** **2 DONE** (memory substrate incl. MCP server) + **Phases 3, 4, 5 DONE**. Phases 0–1
+  complete. Remaining is forward scope (Phase 6 derived memory, Phase 7 inventive).
 - **Built:** `agentsuite/` — `contracts/` (4 schemas + validator + models), `registry/` (loader
   with `route()`/`describe()`) + 9 worker manifests, `runners/` (`AgentRunner`, `MockRunner`,
-  `CopilotRunner` Backend A — parses `--output-format json`, reports `cost.total_tokens`),
-  `orchestrator/` (deterministic DAG executor: schema+registry validation, topo-order, seam
-  validation, event trail with per-run `run_id`, storage-agnostic sinks, opt-in guardrails +
-  approval gate + registry approval floor, `resume_from` skip-completed, bounded-parallel
-  readiness scheduler, partial re-runs), `memory/` (`MemoryStore` — append-only `event/v1` log +
-  `(task_id,id)` artifacts, append-only triggers, `reconstruct`), and `cli.py`
-  (`run [...]` · `replay` · `agents` · `route` — AS-013..020). Tests: **105 passing**.
-- **Phase 3 (DONE):** `Registry.route(need)` ranks manifests deterministically; CLI `agents`/`route`
-  let managerAS pick agents with no hardcoding; `--enforce-approvals` applies a manifest's
-  `approval_default` as a sign-off floor (AS-020). Static artifact-type checking deferred.
-- **Phase 4 (done):** opt-in caps + approval gate, structured `escalation{reason}`, `blocked`
-  status (AS-015).
-- **Phase 5 (DONE):** `--resume` (AS-016), `--max-workers` no-lock readiness scheduler (AS-017),
-  `--from`/`--to` partial re-runs (AS-019); live multi-agent run verified (experimentAS → teachAS).
-- **De-risked:** R1/R3/R4 retired; **R2 mitigating** — `CopilotRunner` reports `cost.total_tokens`,
-  and a real run under `--max-tokens 1` trips `token_budget_exceeded` (AS-018).
-- **managerAS authored & wired:** `~/.copilot/agents/managerAS.md` (user-agnostic; routes via the
-  `agents`/`route` CLI; execution model = "managerAS in the loop", invokes the CLI seam).
+  `CopilotRunner` Backend A — `--output-format json` usage, `mcp_config` + `env_extra` injection),
+  `orchestrator/` (deterministic DAG executor: validation, topo-order, seam validation, event
+  trail with `run_id`, storage-agnostic sinks, guardrails + approval gate + registry approval
+  floor, resume, bounded-parallel scheduler, partial re-runs), `memory/` (`MemoryStore` — append-
+  only `event/v1` log + `(task_id,id)` artifacts + `notes` KV, schema v2 w/ migration, append-only
+  triggers, `reconstruct`; **`mcp_server.py`** zero-dep stdio JSON-RPC), and `cli.py`
+  (`run [...] [--share-memory]` · `replay` · `agents` · `route` — AS-013..021). Tests: **121 passing**.
+- **Phase 2 (DONE):** event-sourced store + reconstruction (AS-014); memory MCP server exposing
+  artifact/event reads + a shared `notes` KV, injected via `--share-memory` (AS-021). Server verified
+  live (default agent wrote a note); **custom-agent worker sharing needs a one-time persistent
+  `copilot mcp add`** (a CLI constraint — see AS-021 / README).
+- **Phase 3 (DONE):** `Registry.route()` + `agents`/`route` CLI; opt-in `--enforce-approvals` floor (AS-020).
+- **Phase 4 (done):** opt-in caps + approval gate, `escalation{reason}`, `blocked` status (AS-015).
+- **Phase 5 (DONE):** `--resume` (AS-016), `--max-workers` no-lock scheduler (AS-017), `--from`/`--to`
+  partial re-runs (AS-019); live multi-agent run verified.
+- **De-risked:** R1/R3/R4 retired; **R2 mitigating** (`cost.total_tokens`, AS-018); **R7 open**
+  (custom-agent MCP-tool exposure, AS-021).
+- **managerAS authored & wired:** `~/.copilot/agents/managerAS.md` (routes via `agents`/`route` CLI;
+  "managerAS in the loop"; invokes the CLI seam).
 - **Topology settled (AS-013):** manager is the interactive driver; orchestrator is a tool it
   calls; only workers run headless.
 
@@ -144,6 +144,38 @@ between them through a **local SQLite + MCP** memory substrate.
   over the event-log substrate).
 - **Consequences:** define the team/user-model contract as the seam between patrecAS/learnAS
   (writer) and managerAS (reader); it reads from the AS-006 event log.
+
+### [AS-021] Memory MCP server — shared worker memory over stdio (Phase 2 remainder)
+- **Status:** accepted (with a documented CLI constraint).
+- **Context:** AS-006/007 call for workers to read/write shared memory over MCP. Finish Phase 2 by
+  exposing the SQLite store as an MCP server injected into workers.
+- **Options considered:**
+  - Official `mcp` Python SDK / FastMCP — pro: standard; con: adds a dependency, diverges from the
+    user's existing zero-dep kgraph MCP server.
+  - **Hand-rolled stdio JSON-RPC 2.0 server (zero deps)** — mirrors `kgraph_mcp.py`, matches
+    AgentSuite's lean-deps ethos (only `jsonschema`). Chosen.
+- **Decision:** `agentsuite/memory/mcp_server.py` — newline-delimited JSON-RPC 2.0 over stdin/stdout,
+  exposing `memory_{get_artifact,list_artifacts,put_note,get_note,list_notes,recent_events}`. The
+  store gains a `notes` KV scratchpad (schema **v2**, with a v1→v2 migration) plus `busy_timeout`
+  for concurrent orchestrator+worker access. The server resolves its DB from `--db` or
+  `$AGENTSUITE_MEMORY_DB`. Delivery seams: `run --share-memory` injects the server via
+  `--additional-mcp-config` (bound to `--db`) **and** sets `AGENTSUITE_MEMORY_DB` on the worker so a
+  persistently-registered server resolves the same store. `dispatch`/`call_tool` are split out for
+  unit-testing without I/O.
+- **Verification:** the server is correct end-to-end — unit + a live subprocess stdio test, and a
+  **live worker (default agent) called `memory_put_note` and the note persisted** to the shared store.
+- **CLI constraint (verified, documented):** copilot **custom `--agent` workers do not receive
+  `--additional-mcp-config` tools** in this CLI version (the server connects and serves `tools/list`,
+  but its tools aren't placed in a custom agent's function list — only the default agent's). A
+  workspace `.mcp.json` is **not loaded** in `-p` non-interactive mode. The proven channel to custom
+  agents is the **user persistent config** (`~/.copilot/mcp-config.json`, as kgraph demonstrates).
+- **Consequences:** for custom-agent workers, register the env-resolved server **once** (opt-in, not
+  done automatically — a global-config change):
+  `copilot mcp add agentsuite-memory -- <venv-python> -m agentsuite.memory.mcp_server`
+  The orchestrator already injects `AGENTSUITE_MEMORY_DB` per run, so the registered server binds to
+  the active store. Until then, the orchestrator remains the single writer of artifacts/events to the
+  shared store (workers' returned artifacts are persisted centrally), so cross-run memory and audit
+  are intact; only *worker-initiated* shared reads/writes await the registration. Risk **R7** added.
 
 ### [AS-020] Phase 3 routing — registry-driven agent selection + approval floor
 - **Status:** accepted.
@@ -353,17 +385,17 @@ between them through a **local SQLite + MCP** memory substrate.
 4. ✅ **Phase 5 `--resume` + bounded parallelism** — `run --db --resume` skips already-completed
    nodes (AS-016); `run --max-workers N` overlaps independent nodes via a no-lock readiness
    scheduler (AS-017). Partial re-runs (`--from`/`--to`) remain.
-5. ⏭ **Phase 2 MCP slice (deferred):** local MCP server exposing memory read/write; inject into
-   workers via `--additional-mcp-config`. Decision pending — framework/shape + the dependency it
-   adds (AS-014 consequences). Owner deferred in favour of guardrails.
+5. ✅ **Phase 2 MCP slice** — memory MCP server (`agentsuite/memory/mcp_server.py`) + `notes` KV
+   (schema v2); injected via `run --share-memory` + `AGENTSUITE_MEMORY_DB`. Verified live (default
+   agent). Custom-agent worker exposure needs a one-time persistent `copilot mcp add` (AS-021, R7).
 6. ✅ **Real usage/cost** — `CopilotRunner` parses `--output-format json` and reports
    `cost.total_tokens`; the `max_total_tokens` guardrail now bites on real runs (AS-018).
 7. ✅ **Phase 5 complete** — partial re-runs (`--from`/`--to`, AS-019) + a verified live 2-agent
    end-to-end run (experimentAS → teachAS).
 8. ✅ **Phase 3 complete** — registry-driven routing (`route`/`agents` CLI) + opt-in approval floor
    (`--enforce-approvals`); adding an agent = adding a manifest (AS-020).
-9. **Next candidates:** (a) the deferred **memory MCP slice** (Phase 2's remainder) — local MCP
-   server exposing memory read/write, injected into workers via `--additional-mcp-config`;
+9. **Next candidates:** (a) confirm/automate the **memory MCP persistent registration** so
+   custom-agent workers share memory (retire R7) — then a live cross-agent memory test;
    (b) **result caching** keyed on the provenance hash (handoff §4) to cut cost on re-runs;
    (c) **Phase 6** — derived memory (graph + vector retrieval); (d) typed-plan artifact checking
    (the deferred half of Phase 3). Refresh the kgraph map alongside.
