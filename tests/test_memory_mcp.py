@@ -145,13 +145,43 @@ def test_server_resolves_db_from_arg_and_env(monkeypatch):
     monkeypatch.setenv("AGENTSUITE_MEMORY_DB", "C:/from-env.db")
     assert srv._resolve_db([]) == "C:/from-env.db"
     monkeypatch.delenv("AGENTSUITE_MEMORY_DB", raising=False)
-    with pytest.raises(SystemExit):
-        srv._resolve_db([])
+    # Falls back to a stable default (so a persistently-registered server never errors).
+    fallback = srv._resolve_db([])
+    assert fallback.endswith("memory.db") and ".copilot" in fallback
 
 
 def test_runner_stores_env_extra():
     runner = CopilotRunner(env_extra={"AGENTSUITE_MEMORY_DB": "C:/run.db"})
     assert runner.env_extra["AGENTSUITE_MEMORY_DB"] == "C:/run.db"
+
+
+# -- persistent registration command -------------------------------------------------------
+
+def test_memory_register_preserves_other_servers(tmp_path):
+    cfg = tmp_path / "mcp-config.json"
+    cfg.write_text(json.dumps({"mcpServers": {"kgraph": {"type": "local", "command": "python"}}}),
+                   encoding="utf-8")
+    from agentsuite.cli import main as cli_main
+    rc = cli_main(["memory", "register", "--config-path", str(cfg)])
+    assert rc == 0
+    data = json.loads(cfg.read_text())
+    assert "kgraph" in data["mcpServers"]                      # untouched
+    entry = data["mcpServers"]["agentsuite-memory"]
+    assert entry["args"] == ["-m", "agentsuite.memory.mcp_server"]
+    assert entry["tools"] == ["*"]
+
+
+def test_memory_register_then_unregister(tmp_path, capsys):
+    cfg = tmp_path / "mcp-config.json"
+    from agentsuite.cli import main as cli_main
+    cli_main(["memory", "register", "--config-path", str(cfg)])
+    capsys.readouterr()
+    cli_main(["memory", "status", "--config-path", str(cfg)])
+    assert json.loads(capsys.readouterr().out)["registered"] is True
+    cli_main(["memory", "unregister", "--config-path", str(cfg)])
+    capsys.readouterr()
+    cli_main(["memory", "status", "--config-path", str(cfg)])
+    assert json.loads(capsys.readouterr().out)["registered"] is False
 
 
 # -- live stdio transport (subprocess) -----------------------------------------------------

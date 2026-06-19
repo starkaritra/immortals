@@ -34,15 +34,15 @@ registry routing, event-sourced memory + MCP server). See `design/plan.md`.
 The event-sourced store is exposed as a zero-dependency MCP server
 (`agentsuite/memory/mcp_server.py`) offering `memory_{get_artifact,list_artifacts,put_note,
 get_note,list_notes,recent_events}`. `run --db <path> --share-memory` injects it (bound to the
-run's store) and sets `AGENTSUITE_MEMORY_DB` for the worker.
+run's store) and sets `AGENTSUITE_MEMORY_DB` for the worker. Register it persistently for the
+default agent / interactive sessions with `agentsuite memory register` (reversible via
+`agentsuite memory unregister`).
 
-The copilot CLI exposes injected MCP tools to the **default agent** today, but **custom `--agent`
-workers** only see MCP tools from the *persistent* config. To give the AS worker agents shared
-memory, register the env-resolved server once:
-
-```pwsh
-copilot mcp add agentsuite-memory -- <repo>\.venv\Scripts\python.exe -m agentsuite.memory.mcp_server
-```
-
-The server reads its DB from `$AGENTSUITE_MEMORY_DB`, which `run --share-memory` sets per run, so the
-registered server always binds to the active run's store.
+**Known CLI limitation (R7, AS-022):** in headless `-p` mode the copilot CLI exposes MCP tools to
+the *default* agent but **not to custom `--agent` workers** — verified for both `--additional-mcp-config`
+and persistent registration (the server connects, but its tools aren't in a custom agent's toolset).
+Because AgentSuite workers are always custom agents, **worker-initiated** shared memory is currently
+blocked by the CLI. Today the orchestrator remains the central writer (every worker artifact + event
+is persisted to the shared store, so cross-run memory and audit are intact); worker-shared
+read/write will be delivered by the orchestrator acting as the **memory broker** (inject relevant
+memory into prompts; persist worker-declared notes) rather than via worker-side MCP calls.

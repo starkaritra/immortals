@@ -94,7 +94,7 @@ component. Every phase ends with something runnable and a measured result, not b
 | R4 | Manager reliably emits schema-valid plans | **Retired** | Live managerAS planning call emitted a valid 2-node `plan/v1`; `depends_on` made first-class to match its natural output; reject-and-retry still available |
 | R5 | Memory-poisoning / stale facts across runs | Open | Provenance on every fact; supersede edges; injection containment |
 | R6 | Backend C migration stays cheap | Mitigated by design | `AgentRunner` seam keeps plan/memory/registry invocation-agnostic |
-| R7 | Custom-agent workers can't see injected MCP tools (CLI behavior) | Open | Server + env-resolved db built; deliver via one-time persistent `copilot mcp add` (the kgraph channel); orchestrator stays the central store writer meanwhile (AS-021) |
+| R7 | Custom-agent workers can't see MCP tools in headless `-p` mode (CLI limitation, confirmed) | Open — root cause known | Not fixable by config (injected & persistent both fail for custom agents, AS-022). Mitigation: orchestrator-as-memory-broker (inject memory into prompts, persist worker-declared notes) — AS-003-aligned |
 
 ## Definition of Done (per task, coderAS bar)
 Code runs · tests pass · result measured & logged (event log) · `architecture.md` + `handoff.md`

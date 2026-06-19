@@ -121,7 +121,11 @@ def dispatch(store: MemoryStore, msg: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def _resolve_db(argv: list[str]) -> str:
-    """The store path: ``--db`` wins, else ``$AGENTSUITE_MEMORY_DB`` (for persistent registration)."""
+    """The store path: ``--db`` wins, else ``$AGENTSUITE_MEMORY_DB``, else a stable default.
+
+    A default (rather than an error) keeps a *persistently-registered* server healthy in normal
+    copilot sessions that don't set the env var; ``run --share-memory`` overrides it per run.
+    """
     for i, tok in enumerate(argv):
         if tok == "--db" and i + 1 < len(argv):
             return argv[i + 1]
@@ -130,7 +134,9 @@ def _resolve_db(argv: list[str]) -> str:
     env_db = os.environ.get("AGENTSUITE_MEMORY_DB")
     if env_db:
         return env_db
-    raise SystemExit("error: memory MCP server needs --db <path> or $AGENTSUITE_MEMORY_DB")
+    default = os.path.join(os.path.expanduser("~"), ".copilot", "agentsuite", "memory.db")
+    os.makedirs(os.path.dirname(default), exist_ok=True)
+    return default
 
 
 def main(argv: list[str] | None = None) -> None:

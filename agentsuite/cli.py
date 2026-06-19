@@ -209,6 +209,62 @@ def cmd_route(args: argparse.Namespace) -> int:
     return 0 if ranked else 1
 
 
+MEMORY_MCP_SERVER_NAME = "agentsuite-memory"
+
+
+def _user_mcp_config_path(args: argparse.Namespace) -> Path:
+    if getattr(args, "config_path", None):
+        return Path(args.config_path)
+    return Path.home() / ".copilot" / "mcp-config.json"
+
+
+def cmd_memory(args: argparse.Namespace) -> int:
+    """Register/unregister the env-resolved memory MCP server in the persistent copilot config.
+
+    Persistent registration is the channel that reaches custom `--agent` workers (AS-021/R7). The
+    server reads its store from ``$AGENTSUITE_MEMORY_DB``, which `run --share-memory` sets per run.
+    """
+    path = _user_mcp_config_path(args)
+    config: dict[str, Any] = {}
+    if path.exists():
+        try:
+            config = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            print(json.dumps({"status": "failed", "error": f"existing config is not valid JSON: {exc}"}))
+            return 2
+    servers = config.setdefault("mcpServers", {})
+
+    if args.memory_action == "status":
+        entry = servers.get(MEMORY_MCP_SERVER_NAME)
+        print(json.dumps({"registered": entry is not None, "config_path": str(path),
+                          "entry": entry}, indent=2))
+        return 0
+
+    if args.memory_action == "register":
+        servers[MEMORY_MCP_SERVER_NAME] = {
+            "type": "local",
+            "command": sys.executable,
+            "args": ["-m", "agentsuite.memory.mcp_server"],
+            "tools": ["*"],
+        }
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+        print(json.dumps({"status": "registered", "server": MEMORY_MCP_SERVER_NAME,
+                          "config_path": str(path),
+                          "note": "set AGENTSUITE_MEMORY_DB per run (run --share-memory does this)"}))
+        return 0
+
+    if args.memory_action == "unregister":
+        existed = servers.pop(MEMORY_MCP_SERVER_NAME, None) is not None
+        path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+        print(json.dumps({"status": "unregistered" if existed else "not_present",
+                          "config_path": str(path)}))
+        return 0
+
+    print(json.dumps({"status": "failed", "error": f"unknown memory action {args.memory_action!r}"}))
+    return 2
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="agentsuite", description="AgentSuite orchestrator CLI.")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -260,6 +316,13 @@ def build_parser() -> argparse.ArgumentParser:
     route.add_argument("--top", type=int, help="Return at most this many candidates.")
     route.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     route.set_defaults(func=cmd_route)
+
+    memory = sub.add_parser("memory",
+                            help="Manage the persistent memory MCP server registration (shared worker memory).")
+    memory.add_argument("memory_action", choices=["register", "unregister", "status"],
+                        help="register/unregister the memory MCP server in the copilot config, or show status.")
+    memory.add_argument("--config-path", help="Override the copilot mcp-config path (default: ~/.copilot/mcp-config.json).")
+    memory.set_defaults(func=cmd_memory)
     return parser
 
 

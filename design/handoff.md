@@ -23,11 +23,13 @@ between them through a **local SQLite + MCP** memory substrate.
   floor, resume, bounded-parallel scheduler, partial re-runs), `memory/` (`MemoryStore` — append-
   only `event/v1` log + `(task_id,id)` artifacts + `notes` KV, schema v2 w/ migration, append-only
   triggers, `reconstruct`; **`mcp_server.py`** zero-dep stdio JSON-RPC), and `cli.py`
-  (`run [...] [--share-memory]` · `replay` · `agents` · `route` — AS-013..021). Tests: **121 passing**.
+  (`run [...] [--share-memory]` · `replay` · `agents` · `route` · `memory` — AS-013..022). Tests: **123 passing**.
 - **Phase 2 (DONE):** event-sourced store + reconstruction (AS-014); memory MCP server exposing
-  artifact/event reads + a shared `notes` KV, injected via `--share-memory` (AS-021). Server verified
-  live (default agent wrote a note); **custom-agent worker sharing needs a one-time persistent
-  `copilot mcp add`** (a CLI constraint — see AS-021 / README).
+  artifact/event reads + a shared `notes` KV, injected via `--share-memory` (AS-021); `agentsuite
+  memory register/unregister/status` to manage persistent registration (AS-022). Server verified
+  live (default agent wrote a note). **R7 finding (AS-022):** custom `--agent` workers get **no**
+  MCP tools in headless `-p` mode (injected *or* persistent — both connect but tools aren't exposed);
+  worker-shared memory will come via the orchestrator memory-broker, not worker-side MCP.
 - **Phase 3 (DONE):** `Registry.route()` + `agents`/`route` CLI; opt-in `--enforce-approvals` floor (AS-020).
 - **Phase 4 (done):** opt-in caps + approval gate, `escalation{reason}`, `blocked` status (AS-015).
 - **Phase 5 (DONE):** `--resume` (AS-016), `--max-workers` no-lock scheduler (AS-017), `--from`/`--to`
@@ -144,6 +146,33 @@ between them through a **local SQLite + MCP** memory substrate.
   over the event-log substrate).
 - **Consequences:** define the team/user-model contract as the seam between patrecAS/learnAS
   (writer) and managerAS (reader); it reads from the AS-006 event log.
+
+### [AS-022] Memory registration command + R7 root cause — broker over MCP for workers
+- **Status:** accepted.
+- **Context:** finish R7 — let custom-agent workers share memory. Hypothesis: a *persistent* MCP
+  registration (the channel kgraph uses) would expose the memory tools to custom `--agent` workers
+  where `--additional-mcp-config` did not.
+- **What was built:** `agentsuite memory register|unregister|status` — adds/removes the env-resolved
+  memory server in `~/.copilot/mcp-config.json` (reversible, preserves other servers; `--config-path`
+  override for tests). The server now falls back to a default store (`~/.copilot/agentsuite/memory.db`)
+  when neither `--db` nor `$AGENTSUITE_MEMORY_DB` is set, so a global registration stays healthy in
+  ordinary sessions.
+- **Experiment (decisive):** registered the server persistently, then ran a custom `--agent teachAS`
+  worker headless (`-p`) with `AGENTSUITE_MEMORY_DB` set. The server **connected**, but the agent
+  reported the tools were **not in its function list** and no note was written. Combined with the
+  prior runs this establishes: **in headless `-p` mode the copilot CLI exposes MCP tools to the
+  default agent but not to custom `--agent` workers — whether injected or persistently registered.**
+  Both connect; the tools are simply absent from a custom agent's toolset.
+- **Decision:** R7 cannot be retired by registration — it's a CLI limitation, not a config gap. The
+  `memory register` command and `--share-memory` injection remain useful for the default agent /
+  interactive sessions / a future CLI that lifts the limitation, but **worker-shared memory will be
+  delivered by the orchestrator acting as the memory broker** (consistent with AS-003: the
+  orchestrator already mediates all agent I/O). Sketch: the orchestrator injects relevant prior
+  notes/artifacts into a worker's prompt (read) and persists the worker's output plus any
+  structured notes it declares (write) — no worker-side MCP call required.
+- **Consequences:** R7 reclassified (root cause known; mitigation = broker). README corrected. The
+  broker is the recommended next slice; it defines a small worker-output notes convention (a design
+  choice worth confirming before building). The environment was left as found (server unregistered).
 
 ### [AS-021] Memory MCP server — shared worker memory over stdio (Phase 2 remainder)
 - **Status:** accepted (with a documented CLI constraint).
@@ -394,8 +423,9 @@ between them through a **local SQLite + MCP** memory substrate.
    end-to-end run (experimentAS → teachAS).
 8. ✅ **Phase 3 complete** — registry-driven routing (`route`/`agents` CLI) + opt-in approval floor
    (`--enforce-approvals`); adding an agent = adding a manifest (AS-020).
-9. **Next candidates:** (a) confirm/automate the **memory MCP persistent registration** so
-   custom-agent workers share memory (retire R7) — then a live cross-agent memory test;
+9. **Next candidates:** (a) **orchestrator memory-broker** (retires R7 within the CLI limits) —
+   inject relevant prior notes/artifacts into worker prompts (read) and persist worker-declared
+   notes parsed from output (write); a small worker-output convention worth confirming first;
    (b) **result caching** keyed on the provenance hash (handoff §4) to cut cost on re-runs;
    (c) **Phase 6** — derived memory (graph + vector retrieval); (d) typed-plan artifact checking
    (the deferred half of Phase 3). Refresh the kgraph map alongside.
