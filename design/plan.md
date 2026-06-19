@@ -28,10 +28,15 @@ component. Every phase ends with something runnable and a measured result, not b
 - **Exit:** ✅ a run is fully reconstructable from the event log (`replay` folds events → status +
   artifacts); ⏭ workers sharing memory via MCP is the remaining slice.
 
-## Phase 3 — Routing & registry
-- [ ] Plan validation against the capability registry (type-check `agent`/`inputs`/`produces`).
-- [ ] managerAS routes by matching task requirements → agent manifests (no hardcoded routing).
-- **Exit:** adding a new agent = adding a manifest; manager can pick it with no orchestrator change.
+## Phase 3 — Routing & registry — DONE
+- [x] Registry-driven routing: `Registry.route(need)` ranks manifests deterministically; CLI
+  `agents` (catalogue) + `route --need` (ranked candidates) — managerAS routes with no hardcoding (AS-020).
+- [x] Registry approval floor (opt-in): `--enforce-approvals` makes a manifest's `approval_default`
+  a sign-off floor (a node may raise, not lower) — registering a high-stakes agent auto-gates it.
+- [~] Static artifact-type checking (`produces`/`consumes`) deferred — plans carry ids not types and
+  runners emit a generic type today; needs typed plan nodes or semantic runner output (AS-020).
+- **Exit:** ✅ adding an agent = adding a manifest; the manager picks it via `route`/`agents` with no
+  orchestrator change; the manifest's approval policy applies automatically under enforcement.
 
 ## Phase 4 — Guardrails & human-in-the-loop
 - [x] Budget/token caps, timeouts, max node executions, per-agent invocation cap (loop guard) —

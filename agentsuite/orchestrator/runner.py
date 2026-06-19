@@ -56,6 +56,7 @@ class Orchestrator:
         guardrails: Guardrails | None = None,
         approval_handler: ApprovalHandler | None = None,
         max_workers: int = 1,
+        enforce_registry_approval: bool = False,
         default_workspace: str | None = None,
     ):
         self.runner = runner
@@ -65,6 +66,7 @@ class Orchestrator:
         self.guardrails = guardrails or Guardrails()
         self.approval_handler = approval_handler
         self.max_workers = max(1, int(max_workers))
+        self.enforce_registry_approval = enforce_registry_approval
         self.default_workspace = default_workspace
 
     # -- public API --------------------------------------------------------------------
@@ -141,7 +143,12 @@ class Orchestrator:
         # accounting stay single-threaded, so no shared state needs locking.
         def gate_and_reserve(node: Node) -> _Failure | None:
             """Approval gate (AS-005) + pre-invoke guardrail reservation (deadline/node/agent caps)."""
-            if node.approval == "required":
+            # Registry approval floor (AS-020): an agent whose manifest defaults to approval can be
+            # raised to "required" but a node cannot lower it. Opt-in via enforce_registry_approval.
+            needs_approval = node.approval == "required"
+            if self.enforce_registry_approval and node.agent in self.registry:
+                needs_approval = needs_approval or self.registry.get(node.agent).approval_default == "required"
+            if needs_approval:
                 emit("approval_requested", node_id=node.id, agent=node.agent,
                      payload={"reversibility": node.reversibility})
                 granted = self.approval_handler(node) if self.approval_handler else False

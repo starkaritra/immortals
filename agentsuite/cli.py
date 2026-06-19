@@ -123,6 +123,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             guardrails=_guardrails_from_args(args),
             approval_handler=_approval_handler(args),
             max_workers=args.max_workers,
+            enforce_registry_approval=args.enforce_approvals,
             default_workspace=args.workspace,
         )
         seed = store.artifacts_for(plan.task_id) if (store and (args.resume or partial)) else None
@@ -176,6 +177,21 @@ def cmd_replay(args: argparse.Namespace) -> int:
         store.close()
 
 
+def cmd_agents(args: argparse.Namespace) -> int:
+    registry = Registry.load()
+    indent = 2 if args.pretty else None
+    print(json.dumps({"agents": registry.describe()}, indent=indent, default=str))
+    return 0
+
+
+def cmd_route(args: argparse.Namespace) -> int:
+    registry = Registry.load()
+    ranked = registry.route(args.need, top=args.top)
+    indent = 2 if args.pretty else None
+    print(json.dumps({"need": args.need, "candidates": ranked}, indent=indent, default=str))
+    return 0 if ranked else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="agentsuite", description="AgentSuite orchestrator CLI.")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -194,6 +210,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--max-agent-calls", type=int, help="Cap invocations of any single agent (loop guard).")
     run.add_argument("--approve", action="store_true",
                      help="Auto-approve approval-required nodes (automation mode).")
+    run.add_argument("--enforce-approvals", action="store_true",
+                     help="Apply each agent manifest's approval_default as a sign-off floor (registry-driven).")
     run.add_argument("--resume", action="store_true",
                      help="Skip nodes already completed in the --db store (resume an interrupted run).")
     run.add_argument("--max-workers", type=int, default=1,
@@ -213,6 +231,16 @@ def build_parser() -> argparse.ArgumentParser:
     replay.add_argument("--events", action="store_true", help="Include the full event trail in output.")
     replay.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     replay.set_defaults(func=cmd_replay)
+
+    agents = sub.add_parser("agents", help="List registered agent manifests (the routing catalogue).")
+    agents.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
+    agents.set_defaults(func=cmd_agents)
+
+    route = sub.add_parser("route", help="Rank agents against a free-text or capability need.")
+    route.add_argument("--need", required=True, help="Task need / capability to match against manifests.")
+    route.add_argument("--top", type=int, help="Return at most this many candidates.")
+    route.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
+    route.set_defaults(func=cmd_route)
     return parser
 
 

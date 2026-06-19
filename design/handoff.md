@@ -13,37 +13,29 @@ invoking worker agents as **headless `copilot` processes** and routing typed **a
 between them through a **local SQLite + MCP** memory substrate.
 
 ## 2. Current state
-- **Phase:** 2 in progress + **Phase 4 done** + **Phase 5 DONE** (resume, bounded parallelism,
-  partial re-runs, live multi-agent run). The MCP access layer is the one remaining Phase 2 slice
-  (deferred by owner). Phases 0–1 complete.
-- **Built:** `agentsuite/` — `contracts/` (4 schemas + validator + models; `plan/v1` nodes
-  support `inputs`, `depends_on`, `edges`, `approval`, `reversibility`, `budget`), `registry/`
-  (loader) + 9 worker manifests, `runners/` (`AgentRunner`, `MockRunner`, `CopilotRunner`
-  Backend A — parses `--output-format json`, reports `cost.total_tokens`), `orchestrator/`
-  (deterministic DAG executor: schema+registry validation, topo-order, seam validation, event
-  trail with per-run `run_id`, storage-agnostic `event_sink`/`artifact_sink`, opt-in guardrails +
-  approval gate, `resume_from` skip-completed, bounded-parallel readiness scheduler `max_workers`,
-  and `from_node`/`to_node` partial re-runs), `memory/` (`MemoryStore` — append-only `event/v1`
-  log + `(task_id,id)` artifacts, in-DB append-only triggers, `reconstruct` fold, schema-versioned),
-  and `cli.py` (`run [--db] [--max-* guardrails] [--approve] [--resume] [--max-workers]
-  [--from] [--to]` + `replay` — AS-013..019). Tests: **90 passing**.
-- **Phase 2 exit (1/2):** a run persisted with `run --db` is fully reconstructable from the
-  event log alone (`replay --task-id` folds events → identical status + artifacts).
-- **Phase 4 (done):** opt-in caps (`max_total_tokens`/`max_wall_clock_s`/`max_nodes`/
-  `max_agent_invocations`, all default unlimited) enforced by the orchestrator with structured
-  `escalation{reason}`; approval-required nodes gate on an `approval_handler` and end `blocked`
-  if unapproved. Verified end-to-end (AS-015).
-- **Phase 5 (DONE):** `--resume` skips completed nodes (AS-016); `--max-workers N` overlaps
-  independent nodes via a no-lock readiness scheduler (AS-017); `--from`/`--to` execute a selected
-  sub-graph sourcing the rest from the store (AS-019). **Live multi-agent run verified:**
-  experimentAS → teachAS with real data flow, token usage, and a reconstructable event log.
-- **De-risked (all retired):** Backend A invocation (R1), nested-CLI execution (R3) — live
-  teachAS run; manager plan emission (R4) — live managerAS produced a valid 2-node `plan/v1`
-  that the CLI executed in order with a full event trail. **Usage/cost (R2 mitigating):**
-  `CopilotRunner` reports `cost.total_tokens`; a real run under `--max-tokens 1` trips
-  `token_budget_exceeded` (AS-018).
-- **managerAS authored & wired:** `~/.copilot/agents/managerAS.md` (user-agnostic; three
-  layers; execution model = "managerAS in the loop", invokes the CLI seam).
+- **Phase:** 2 in progress + **Phases 3, 4, 5 DONE** (routing, guardrails, resume/parallelism/
+  partial re-runs). The MCP access layer is the one remaining Phase 2 slice (deferred by owner).
+  Phases 0–1 complete.
+- **Built:** `agentsuite/` — `contracts/` (4 schemas + validator + models), `registry/` (loader
+  with `route()`/`describe()`) + 9 worker manifests, `runners/` (`AgentRunner`, `MockRunner`,
+  `CopilotRunner` Backend A — parses `--output-format json`, reports `cost.total_tokens`),
+  `orchestrator/` (deterministic DAG executor: schema+registry validation, topo-order, seam
+  validation, event trail with per-run `run_id`, storage-agnostic sinks, opt-in guardrails +
+  approval gate + registry approval floor, `resume_from` skip-completed, bounded-parallel
+  readiness scheduler, partial re-runs), `memory/` (`MemoryStore` — append-only `event/v1` log +
+  `(task_id,id)` artifacts, append-only triggers, `reconstruct`), and `cli.py`
+  (`run [...]` · `replay` · `agents` · `route` — AS-013..020). Tests: **105 passing**.
+- **Phase 3 (DONE):** `Registry.route(need)` ranks manifests deterministically; CLI `agents`/`route`
+  let managerAS pick agents with no hardcoding; `--enforce-approvals` applies a manifest's
+  `approval_default` as a sign-off floor (AS-020). Static artifact-type checking deferred.
+- **Phase 4 (done):** opt-in caps + approval gate, structured `escalation{reason}`, `blocked`
+  status (AS-015).
+- **Phase 5 (DONE):** `--resume` (AS-016), `--max-workers` no-lock readiness scheduler (AS-017),
+  `--from`/`--to` partial re-runs (AS-019); live multi-agent run verified (experimentAS → teachAS).
+- **De-risked:** R1/R3/R4 retired; **R2 mitigating** — `CopilotRunner` reports `cost.total_tokens`,
+  and a real run under `--max-tokens 1` trips `token_budget_exceeded` (AS-018).
+- **managerAS authored & wired:** `~/.copilot/agents/managerAS.md` (user-agnostic; routes via the
+  `agents`/`route` CLI; execution model = "managerAS in the loop", invokes the CLI seam).
 - **Topology settled (AS-013):** manager is the interactive driver; orchestrator is a tool it
   calls; only workers run headless.
 
@@ -152,6 +144,32 @@ between them through a **local SQLite + MCP** memory substrate.
   over the event-log substrate).
 - **Consequences:** define the team/user-model contract as the seam between patrecAS/learnAS
   (writer) and managerAS (reader); it reads from the AS-006 event log.
+
+### [AS-020] Phase 3 routing — registry-driven agent selection + approval floor
+- **Status:** accepted.
+- **Context:** Phase 3's goal is "adding an agent = adding a manifest; the manager picks it with no
+  orchestrator change." Two needs: (1) a way for managerAS to discover/route to agents from the
+  registry; (2) registry-driven policy. Static artifact-*type* checking of the DAG was considered
+  but is **not groundable yet** — plans carry artifact *ids*, not types, and real runners emit a
+  generic `agent_response` type, so a strict produces/consumes type check would reject every live
+  run. Deferred until plans carry types or runners emit semantic types.
+- **Decision:**
+  - **Routing API + CLI.** `Registry.route(need, top=…)` ranks manifests deterministically (no LLM):
+    normalised capability-phrase hits (heavy), capability-token overlap (medium), and
+    `when_to_use`/`summary` overlap (light), returning `{agent, score, reasons, …}` sorted by score
+    then name. `Registry.describe()` returns the full catalogue. CLI: `agentsuite agents` (list) and
+    `agentsuite route --need "<text>" [--top N]` — the tools managerAS calls to route, so a new
+    agent is reachable the moment its manifest exists.
+  - **Approval floor (opt-in).** `Orchestrator(enforce_registry_approval=True)` makes a manifest's
+    `approval_default: required` a sign-off *floor*: a node may *raise* approval but not lower it.
+    Off by default (non-breaking); CLI `run --enforce-approvals`. Registering a high-stakes agent
+    (experimentAS/coderAS/patentAS) thus auto-gates its nodes with zero code change.
+- **Rationale:** delivers the Phase 3 exit (manifest-driven routing + policy, no orchestrator
+  change) with fully groundable mechanisms; keeps routing deterministic/auditable and the approval
+  floor configurable (no hard-coded policy).
+- **Consequences:** managerAS persona updated to route via `agents`/`route` rather than a hardcoded
+  list. Static DAG type-checking remains a future item (needs typed plan nodes or semantic runner
+  output). Phase 3 complete.
 
 ### [AS-019] Partial re-runs — execute a selected sub-graph (`--from` / `--to`)
 - **Status:** accepted.
@@ -342,11 +360,13 @@ between them through a **local SQLite + MCP** memory substrate.
    `cost.total_tokens`; the `max_total_tokens` guardrail now bites on real runs (AS-018).
 7. ✅ **Phase 5 complete** — partial re-runs (`--from`/`--to`, AS-019) + a verified live 2-agent
    end-to-end run (experimentAS → teachAS).
-8. **Next candidates:** (a) the deferred **memory MCP slice** (Phase 2's remainder) — local MCP
+8. ✅ **Phase 3 complete** — registry-driven routing (`route`/`agents` CLI) + opt-in approval floor
+   (`--enforce-approvals`); adding an agent = adding a manifest (AS-020).
+9. **Next candidates:** (a) the deferred **memory MCP slice** (Phase 2's remainder) — local MCP
    server exposing memory read/write, injected into workers via `--additional-mcp-config`;
    (b) **result caching** keyed on the provenance hash (handoff §4) to cut cost on re-runs;
-   (c) **Phase 3 routing** — managerAS routes by matching task requirements to manifests;
-   (d) **Phase 6** — derived memory (graph + vector retrieval). Refresh the kgraph map alongside.
+   (c) **Phase 6** — derived memory (graph + vector retrieval); (d) typed-plan artifact checking
+   (the deferred half of Phase 3). Refresh the kgraph map alongside.
 
 ## 8. Related precedents (reuse, don't reinvent)
 - `eval_platform/core/pipeline/runner.py` — composable stage runner (the orchestrator skeleton).
