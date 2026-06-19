@@ -27,7 +27,8 @@ between them through a **local SQLite + MCP** memory substrate.
   `memory/` (`MemoryStore` — append-only `event/v1` log + `(task_id,id)` artifacts, in-DB
   append-only triggers, `reconstruct` fold, schema-versioned), and `cli.py`
   (`run [--db] [--max-* guardrails] [--approve] [--resume] [--max-workers]` + `replay` —
-  AS-013/014/015/016/017). Tests: **74 passing**.
+  AS-013/014/015/016/017/018). `CopilotRunner` parses `--output-format json` and reports real
+  usage (`cost.total_tokens`). Tests: **80 passing**.
 - **Phase 2 exit (1/2):** a run persisted with `run --db` is fully reconstructable from the
   event log alone (`replay --task-id` folds events → identical status + artifacts).
 - **Phase 4 (done):** opt-in caps (`max_total_tokens`/`max_wall_clock_s`/`max_nodes`/
@@ -42,7 +43,9 @@ between them through a **local SQLite + MCP** memory substrate.
   (`--from`/`--to`) remain.
 - **De-risked (all retired):** Backend A invocation (R1), nested-CLI execution (R3) — live
   teachAS run; manager plan emission (R4) — live managerAS produced a valid 2-node `plan/v1`
-  that the CLI executed in order with a full event trail.
+  that the CLI executed in order with a full event trail. **Usage/cost (R2 partial):**
+  `CopilotRunner` now parses `--output-format json` and reports `cost.total_tokens` (summed output
+  tokens) — verified live, and a real run under `--max-tokens 1` trips `token_budget_exceeded` (AS-018).
 - **managerAS authored & wired:** `~/.copilot/agents/managerAS.md` (user-agnostic; three
   layers; execution model = "managerAS in the loop", invokes the CLI seam).
 - **Topology settled (AS-013):** manager is the interactive driver; orchestrator is a tool it
@@ -153,6 +156,29 @@ between them through a **local SQLite + MCP** memory substrate.
   over the event-log substrate).
 - **Consequences:** define the team/user-model contract as the seam between patrecAS/learnAS
   (writer) and managerAS (reader); it reads from the AS-006 event log.
+
+### [AS-018] CopilotRunner reports usage — JSON output, summed output tokens
+- **Status:** accepted.
+- **Context:** the Phase 4 `max_total_tokens` guardrail accumulated `provenance.cost.total_tokens`,
+  but Backend A ran with `-s` (text) and reported no usage, so the cap never bit on real runs.
+- **Options considered:**
+  - Keep `-s` text + estimate tokens from response length — pro: no output change; con: a fabricated
+    number, not real usage; violates the provenance/"no magic numbers" bar.
+  - **Switch to `--output-format json` (JSONL) and parse usage from the stream** — pro: real,
+    CLI-reported figures; con: must fold a multi-line event stream into one artifact.
+- **Decision:** `CopilotRunner` now invokes `copilot … --output-format json` and a pure
+  `_parse_jsonl` folds the stream: the final answer is the last non-empty `assistant.message`
+  content; **`outputTokens` are summed across all `assistant.message` events** and recorded as
+  `provenance.cost.total_tokens` (a lower bound — the CLI exposes output tokens only). The `result`
+  line's `usage` (premiumRequests, durations) and `sessionId`, plus the per-message `model`, are
+  also captured. Parsing is robust to interleaved/non-JSON lines (skipped). Failure = process
+  non-zero **or** `result.exitCode` non-zero.
+- **Rationale:** gives the token guardrail a real signal with full provenance; keeps the artifact
+  contract (`content.response`, `provenance.*`) unchanged for consumers (e.g. the smoke script).
+- **Consequences:** verified live — a one-node teachAS run reported `cost.total_tokens=59`, and the
+  same run under `--max-tokens 1` failed with `token_budget_exceeded` ("59 used"). Input/total
+  tokens aren't exposed by the CLI, so the cap is a lower-bound ceiling; if exact accounting is
+  needed later, source it from OpenTelemetry monitoring or a provider usage API.
 
 ### [AS-017] Bounded parallel execution — readiness scheduler, main-thread orchestration
 - **Status:** accepted.
@@ -298,10 +324,11 @@ between them through a **local SQLite + MCP** memory substrate.
 5. ⏭ **Phase 2 MCP slice (deferred):** local MCP server exposing memory read/write; inject into
    workers via `--additional-mcp-config`. Decision pending — framework/shape + the dependency it
    adds (AS-014 consequences). Owner deferred in favour of guardrails.
-6. **Next candidates:** (a) make `CopilotRunner` report token usage (parse `--output-format json`)
-   so the `max_total_tokens` guardrail bites on real runs; (b) Phase 5 finish — partial re-runs
-   (`--from`/`--to`) + a live multi-agent end-to-end run; (c) the deferred MCP slice. Refresh the
-   kgraph map alongside.
+6. ✅ **Real usage/cost** — `CopilotRunner` parses `--output-format json` and reports
+   `cost.total_tokens`; the `max_total_tokens` guardrail now bites on real runs (AS-018).
+7. **Next candidates:** (a) Phase 5 finish — partial re-runs (`--from`/`--to`) + a live multi-agent
+   end-to-end run; (b) the deferred memory MCP slice; (c) result caching keyed on the provenance
+   hash (handoff §4). Refresh the kgraph map alongside.
 
 ## 8. Related precedents (reuse, don't reinvent)
 - `eval_platform/core/pipeline/runner.py` — composable stage runner (the orchestrator skeleton).

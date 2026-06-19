@@ -77,7 +77,7 @@ component. Every phase ends with something runnable and a measured result, not b
 | # | Risk / assumption | Status | Mitigation |
 |---|---|---|---|
 | R1 | Backend A can run a named agent headlessly & return parseable output | **Retired** | Verified: `--agent`, `-p`, `--output-format json`, `--no-ask-user`, `--allow-all-tools` |
-| R2 | Headless worker latency/cost is acceptable for multi-node DAGs | Open | Measure in Phase 1; cache; parallelize; budget caps |
+| R2 | Headless worker latency/cost is acceptable for multi-node DAGs | **Mitigating** | Usage now measured per run (`cost.total_tokens`/durations from `--output-format json`, AS-018); budget caps + parallelism in place; caching next |
 | R3 | Nested `copilot` invocation (CLI-in-CLI) behaves cleanly | **Retired** | Live smoke test: `scripts/smoke_backend_a.py` ran teachAS headless end-to-end, valid artifact returned |
 | R4 | Manager reliably emits schema-valid plans | **Retired** | Live managerAS planning call emitted a valid 2-node `plan/v1`; `depends_on` made first-class to match its natural output; reject-and-retry still available |
 | R5 | Memory-poisoning / stale facts across runs | Open | Provenance on every fact; supersede edges; injection containment |

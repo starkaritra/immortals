@@ -47,7 +47,8 @@ def main() -> int:
         print(f"\nartifact {aid!r} (status={art.status}, by={art.produced_by}):")
         print("  " + str(art.content.get("response", art.content))[:800])
         print(f"  provenance: exit={art.provenance.get('exit_code')} "
-              f"model={art.provenance.get('model')}")
+              f"model={art.provenance.get('model')} "
+              f"cost={art.provenance.get('cost')}")
 
     return 0 if result.status == "completed" else 1
 

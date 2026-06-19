@@ -1,8 +1,14 @@
 """Backend A: invoke an AS agent as a headless ``copilot`` subprocess (decision AS-009).
 
-Runs ``copilot --agent <name> -p "<prompt>" -s --allow-all-tools --no-ask-user`` and wraps
-the agent's response into a validated ``artifact/v1``. Input artifacts are passed as clearly
-fenced *data* (never instructions) to contain prompt injection.
+Runs ``copilot --agent <name> -p "<prompt>" --output-format json --allow-all-tools
+--no-ask-user`` and folds the emitted JSONL into a validated ``artifact/v1``. The JSON output
+mode (rather than ``-s`` text) is what exposes **usage**: each ``assistant.message`` line carries
+``outputTokens`` and ``model``, and the final ``result`` line carries the session ``usage``
+(premium requests, durations). Summed output tokens are recorded as ``provenance.cost.total_tokens``
+so the orchestrator's ``max_total_tokens`` guardrail measures real spend (decision AS-018).
+
+Input artifacts are passed as clearly fenced *data* (never instructions) to contain prompt
+injection.
 """
 
 from __future__ import annotations
@@ -62,7 +68,9 @@ class CopilotRunner(AgentRunner):
         return "\n".join(parts)
 
     def _build_command(self, request: RunRequest, prompt: str) -> list[str]:
-        cmd = [self.executable, "--agent", request.agent, "-p", prompt, "-s", "--no-ask-user"]
+        # JSON output (not -s/text) so the run reports usage we can charge the token guardrail.
+        cmd = [self.executable, "--agent", request.agent, "-p", prompt,
+               "--output-format", "json", "--no-ask-user"]
         if self.allow_all_tools:
             cmd.append("--allow-all-tools")
         if request.workspace:
@@ -71,6 +79,64 @@ class CopilotRunner(AgentRunner):
             cmd += ["--model", self.model]
         cmd += self.extra_args
         return cmd
+
+    # -- output parsing ----------------------------------------------------------------
+
+    @staticmethod
+    def _parse_jsonl(stdout: str) -> dict[str, Any]:
+        """Fold the ``copilot --output-format json`` JSONL stream into the fields we need.
+
+        Robust to interleaved/non-JSON lines: unparseable lines are skipped. The final answer is
+        the last non-empty ``assistant.message`` content; tokens are summed across all of them.
+        """
+        responses: list[str] = []
+        output_tokens = 0
+        saw_tokens = False
+        model: str | None = None
+        premium_requests: Any = None
+        total_api_ms: Any = None
+        session_ms: Any = None
+        session_id: str | None = None
+        result_exit: int | None = None
+
+        for line in stdout.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            etype = obj.get("type")
+            if etype == "assistant.message":
+                data = obj.get("data") or {}
+                content = data.get("content")
+                if content:
+                    responses.append(content)
+                tok = data.get("outputTokens")
+                if isinstance(tok, (int, float)):
+                    output_tokens += int(tok)
+                    saw_tokens = True
+                if data.get("model"):
+                    model = data["model"]
+            elif etype == "result":
+                result_exit = obj.get("exitCode")
+                session_id = obj.get("sessionId")
+                usage = obj.get("usage") or {}
+                premium_requests = usage.get("premiumRequests")
+                total_api_ms = usage.get("totalApiDurationMs")
+                session_ms = usage.get("sessionDurationMs")
+
+        return {
+            "response": responses[-1] if responses else "",
+            "output_tokens": output_tokens if saw_tokens else None,
+            "model": model,
+            "premium_requests": premium_requests,
+            "total_api_ms": total_api_ms,
+            "session_ms": session_ms,
+            "session_id": session_id,
+            "result_exit": result_exit,
+        }
 
     # -- execution ---------------------------------------------------------------------
 
@@ -98,15 +164,34 @@ class CopilotRunner(AgentRunner):
             raise RunnerError(f"failed to launch {request.agent!r}: {exc}") from exc
         ended = _now()
 
+        parsed = self._parse_jsonl(proc.stdout or "")
+
+        # Cost/usage: output tokens are the only token signal the CLI exposes; record it as
+        # total_tokens (a lower bound) so the guardrail can accumulate real spend.
+        cost: dict[str, Any] = {}
+        if parsed["output_tokens"] is not None:
+            cost["output_tokens"] = parsed["output_tokens"]
+            cost["total_tokens"] = parsed["output_tokens"]
+        for key, val in (("premium_requests", parsed["premium_requests"]),
+                         ("total_api_ms", parsed["total_api_ms"]),
+                         ("session_ms", parsed["session_ms"])):
+            if val is not None:
+                cost[key] = val
+
         provenance: dict[str, Any] = {
-            "model": self.model or "copilot-default",
+            "model": parsed["model"] or self.model or "copilot-default",
             "started": started,
             "ended": ended,
             "exit_code": proc.returncode,
             "backend": self.name,
         }
+        if cost:
+            provenance["cost"] = cost
+        if parsed["session_id"]:
+            provenance["session_id"] = parsed["session_id"]
 
-        if proc.returncode != 0:
+        failed = proc.returncode != 0 or (parsed["result_exit"] not in (None, 0))
+        if failed:
             return Artifact(
                 id=request.produces,
                 produced_by=request.agent,
@@ -115,11 +200,11 @@ class CopilotRunner(AgentRunner):
                 type="error",
                 content={"stderr": (proc.stderr or "").strip()[:4000]},
                 status="failed",
-                error=f"copilot exited {proc.returncode}",
+                error=f"copilot exited {proc.returncode} (result exitCode={parsed['result_exit']})",
                 provenance=provenance,
             )
 
-        response = (proc.stdout or "").strip()
+        response = parsed["response"]
         return Artifact(
             id=request.produces,
             produced_by=request.agent,
