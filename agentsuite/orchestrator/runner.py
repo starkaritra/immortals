@@ -12,6 +12,7 @@ from agentsuite.registry import Registry
 from agentsuite.runners.base import AgentRunner, RunRequest, RunnerError
 
 EventSink = Callable[[dict], None]
+ArtifactSink = Callable[["Artifact"], None]
 
 
 class PlanError(ValueError):
@@ -38,11 +39,13 @@ class Orchestrator:
         runner: AgentRunner,
         registry: Registry | None = None,
         event_sink: EventSink | None = None,
+        artifact_sink: ArtifactSink | None = None,
         default_workspace: str | None = None,
     ):
         self.runner = runner
         self.registry = registry if registry is not None else Registry.load()
         self.event_sink = event_sink
+        self.artifact_sink = artifact_sink
         self.default_workspace = default_workspace
 
     # -- public API --------------------------------------------------------------------
@@ -99,6 +102,8 @@ class Orchestrator:
                 return RunResult(plan.task_id, "failed", blackboard, events, node.id, artifact.error)
 
             blackboard[artifact.id] = artifact
+            if self.artifact_sink:
+                self.artifact_sink(artifact)
             emit("artifact_written", node_id=node.id, agent=node.agent, payload={"artifact_id": artifact.id})
             emit("node_completed", node_id=node.id, agent=node.agent)
 

@@ -10,8 +10,8 @@ teachAS, prepAS, researchAS, paperAS, patentAS, presentAS, discussAS, …).
   DAG, validates every seam contract, runs guardrails, and mediates all inter-agent I/O.
 - **Workers** — the existing `~/.copilot/agents/*.md` personas, invoked through a swappable
   `AgentRunner` (Backend A = headless `copilot` today; LangGraph/ACP later).
-- **Memory** — local-first SQLite (append-only event log + derived read models) exposed over
-  MCP.
+- **Memory** — local-first SQLite (append-only `event/v1` log + persisted artifacts; runs are
+  reconstructable by folding the log) exposed over MCP (MCP layer in progress).
 
 See `design/architecture.md` (target spec), `design/plan.md` (build order), and
 `design/handoff.md` (state + decision log AS-001…AS-012).
@@ -27,4 +27,5 @@ pip install -e ".[dev]"
 pytest
 ```
 
-Status: **Phase 0–1** (contracts + MVP vertical slice). See `design/plan.md`.
+Status: **Phase 2** (memory substrate — event-sourced SQLite store done; MCP layer in progress).
+See `design/plan.md`.

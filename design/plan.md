@@ -20,11 +20,13 @@ component. Every phase ends with something runnable and a measured result, not b
 - **Exit:** ✅ **Phase 1 done.** A live managerAS planning call emitted a valid 2-node `plan/v1`; the CLI executed it in dependency order with a full event trail. Backend A proven on a real worker run.
 
 ## Phase 2 — Memory substrate (event log + MCP)
-- [ ] SQLite schema: `events` (append-only) + projection tables.
-- [ ] Event-sourcing writer; orchestrator emits an event per invocation/decision/escalation.
+- [x] SQLite schema: `events` (append-only, in-DB triggers) + `artifacts` projection table.
+- [x] Event-sourcing writer; orchestrator emits an event per invocation/decision/escalation via
+  storage-agnostic `event_sink`/`artifact_sink` (`MemoryStore`, AS-014). `run --db` + `replay` CLI.
 - [ ] Local **MCP server** exposing memory read/write; inject into workers via `--additional-mcp-config`.
-- [ ] Blackboard: artifacts persisted + resolvable by id across nodes.
-- **Exit:** a run is fully reconstructable from the event log; workers can read/write shared memory via MCP.
+- [x] Blackboard: artifacts persisted + resolvable by id across nodes/runs.
+- **Exit:** ✅ a run is fully reconstructable from the event log (`replay` folds events → status +
+  artifacts); ⏭ workers sharing memory via MCP is the remaining slice.
 
 ## Phase 3 — Routing & registry
 - [ ] Plan validation against the capability registry (type-check `agent`/`inputs`/`produces`).

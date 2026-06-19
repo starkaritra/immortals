@@ -13,13 +13,21 @@ invoking worker agents as **headless `copilot` processes** and routing typed **a
 between them through a **local SQLite + MCP** memory substrate.
 
 ## 2. Current state
-- **Phase:** 1 **complete** — the full manager→plan→orchestrate loop runs end-to-end. Phase 0 done.
+- **Phase:** 2 **in progress** — memory substrate: the event-sourced SQLite store + artifact
+  persistence + run reconstruction are done and tested; the MCP access layer is the remaining
+  Phase 2 slice. Phases 0–1 complete.
 - **Built:** `agentsuite/` — `contracts/` (4 schemas + validator + models; `plan/v1` nodes
   support `inputs`, `depends_on`, and `edges` for dependencies), `registry/` (loader) + 9
   worker manifests, `runners/` (`AgentRunner`, `MockRunner`, `CopilotRunner` Backend A),
   `orchestrator/` (deterministic DAG executor with schema+registry validation, topo-order,
-  seam validation, event trail), and `cli.py` (`python -m agentsuite run` — the seam managerAS
-  calls, decision AS-013). Tests: **36 passing**.
+  seam validation, event trail; writes through storage-agnostic `event_sink`/`artifact_sink`),
+  `memory/` (`MemoryStore` — append-only `event/v1` log + `(task_id,id)` artifacts, in-DB
+  append-only triggers, `reconstruct` fold, schema-versioned), and `cli.py`
+  (`python -m agentsuite run [--db PATH]` + `python -m agentsuite replay` — decisions AS-013/014).
+  Tests: **50 passing**.
+- **Phase 2 exit (1/2):** a run persisted with `run --db` is fully reconstructable from the
+  event log alone (`replay --task-id` folds events → identical status + artifacts). Verified
+  end-to-end on a 2-node mock DAG.
 - **De-risked (all retired):** Backend A invocation (R1), nested-CLI execution (R3) — live
   teachAS run; manager plan emission (R4) — live managerAS produced a valid 2-node `plan/v1`
   that the CLI executed in order with a full event trail.
@@ -134,6 +142,30 @@ between them through a **local SQLite + MCP** memory substrate.
 - **Consequences:** define the team/user-model contract as the seam between patrecAS/learnAS
   (writer) and managerAS (reader); it reads from the AS-006 event log.
 
+### [AS-014] Memory store — event-sourced SQLite, wired via storage-agnostic sinks
+- **Status:** accepted.
+- **Context:** Phase 2 needs durable, reconstructable runs (AS-006/007). How should the
+  orchestrator persist its event log + artifacts without coupling the deterministic executor to
+  a storage engine?
+- **Options considered:**
+  - Orchestrator owns a `MemoryStore` directly — pro: less wiring; con: couples execution to
+    SQLite, harder to test, violates DIP.
+  - Storage-agnostic callback **sinks** (`event_sink`, `artifact_sink`) the store satisfies —
+    pro: orchestrator stays storage-free, in-memory runs unchanged, store is independently
+    testable; con: two seams to wire at the call site (CLI).
+- **Decision:** `agentsuite/memory/store.py` `MemoryStore` over local SQLite — an **append-only
+  `events` table** (source of truth) + an `artifacts` table keyed by `(task_id, id)`. The
+  orchestrator writes through `event_sink`/`artifact_sink` callbacks only; persistence is opt-in
+  (`run --db PATH`). A run reconstructs by **folding the event log** (`reconstruct` / `replay`
+  CLI). Append-only is enforced in-DB by `RAISE(ABORT)` triggers on UPDATE/DELETE of `events`;
+  `event_id` is unique so replays are idempotent.
+- **Rationale:** confines storage behind a contract seam (DIP/SOLID), keeps the executor
+  deterministic and storage-free, makes "a run is reconstructable from the log" a tested
+  property, and leaves room for derived read models (graph/vector, Phase 6) over the same log.
+- **Consequences:** schema is versioned via `PRAGMA user_version` (migration guard). The **MCP
+  access layer** (exposing this store to workers via `--additional-mcp-config`) is the remaining
+  Phase 2 slice — its framework/shape is the next decision (adds a dependency; needs sign-off).
+
 ### [AS-013] Execution topology — "managerAS in the loop"
 - **Status:** accepted.
 - **Context:** managerAS must do consultative intake (talk to the user) and is the only
@@ -162,11 +194,12 @@ between them through a **local SQLite + MCP** memory substrate.
   Q5 repo hygiene → git initialized, `.gitignore` in place.)*
 
 ## 7. Next actions (immediate) — Phase 2: memory substrate
-1. SQLite schema + append-only `event/v1` writer; wire the orchestrator's `event_sink` to it
-   so every run is durably reconstructable (decisions AS-006/007).
-2. Persist artifacts (blackboard) to the store, resolvable by id across runs.
-3. Local **MCP server** exposing memory read/write; inject into workers via
-   `--additional-mcp-config` so agents share memory.
+1. ✅ SQLite schema + append-only `event/v1` writer; orchestrator's `event_sink`/`artifact_sink`
+   wired so every run is durably reconstructable (AS-006/007/014). `MemoryStore` + `replay` CLI.
+2. ✅ Artifacts (blackboard) persisted + resolvable by id (`get_artifact`, `artifacts_for`).
+3. ⏭ Local **MCP server** exposing memory read/write; inject into workers via
+   `--additional-mcp-config` so agents share memory. **Next decision** — framework/shape +
+   the dependency it adds (needs sign-off; AS-014 consequences).
 4. Then **Phase 4 (pull forward): guardrails** — budget/token caps, timeouts, approval gates —
    before unleashing multi-node *real* (billable) runs.
 5. Initialize a kgraph project for AgentSuite and seed nodes from `architecture.md`.

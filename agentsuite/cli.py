@@ -15,6 +15,7 @@ from typing import Any
 
 from agentsuite.contracts import ContractError
 from agentsuite.contracts.models import Plan
+from agentsuite.memory import MemoryStore, ReplayResult
 from agentsuite.orchestrator import Orchestrator, RunResult
 from agentsuite.orchestrator.runner import PlanError
 from agentsuite.registry import Registry
@@ -71,16 +72,62 @@ def cmd_run(args: argparse.Namespace) -> int:
         return 2
 
     runner = _make_runner(args.backend)
+    store = MemoryStore(args.db) if args.db else None
     try:
-        orch = Orchestrator(runner=runner, registry=Registry.load(), default_workspace=args.workspace)
+        orch = Orchestrator(
+            runner=runner,
+            registry=Registry.load(),
+            event_sink=store.append_event if store else None,
+            artifact_sink=store.put_artifact if store else None,
+            default_workspace=args.workspace,
+        )
         result = orch.run(plan)
     except PlanError as exc:
         print(json.dumps({"status": "failed", "error": f"plan rejected: {exc}"}))
         return 2
+    finally:
+        if store:
+            store.close()
 
     indent = 2 if args.pretty else None
     print(json.dumps(result_to_dict(result, args.events), indent=indent, default=str))
     return 0 if result.status == "completed" else 1
+
+
+def _replay_to_dict(result: ReplayResult, include_events: bool) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "task_id": result.task_id,
+        "status": result.status,
+        "artifacts": {aid: art.to_dict() for aid, art in result.artifacts.items()},
+    }
+    if result.failed_node:
+        out["failed_node"] = result.failed_node
+    if include_events:
+        out["events"] = result.events
+    else:
+        out["event_count"] = len(result.events)
+    return out
+
+
+def cmd_replay(args: argparse.Namespace) -> int:
+    store = MemoryStore(args.db)
+    try:
+        if args.list:
+            print(json.dumps({"tasks": store.tasks()}, indent=2 if args.pretty else None))
+            return 0
+        if not args.task_id:
+            print(json.dumps({"status": "failed", "error": "provide --task-id or --list"}))
+            return 2
+        try:
+            result = store.reconstruct(args.task_id)
+        except KeyError as exc:
+            print(json.dumps({"status": "failed", "error": str(exc)}))
+            return 2
+        indent = 2 if args.pretty else None
+        print(json.dumps(_replay_to_dict(result, args.events), indent=indent, default=str))
+        return 0 if result.status == "completed" else 1
+    finally:
+        store.close()
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -94,9 +141,18 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--backend", choices=["copilot", "mock"], default="copilot",
                      help="Invocation backend (default: copilot).")
     run.add_argument("--workspace", help="Directory workers may access (--add-dir).")
+    run.add_argument("--db", help="SQLite path to persist the event log + artifacts (event-sourced run).")
     run.add_argument("--events", action="store_true", help="Include the full event trail in output.")
     run.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     run.set_defaults(func=cmd_run)
+
+    replay = sub.add_parser("replay", help="Reconstruct a run by folding its persisted event log.")
+    replay.add_argument("--db", required=True, help="SQLite path written by `run --db`.")
+    replay.add_argument("--task-id", help="Task to reconstruct.")
+    replay.add_argument("--list", action="store_true", help="List task ids in the store.")
+    replay.add_argument("--events", action="store_true", help="Include the full event trail in output.")
+    replay.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
+    replay.set_defaults(func=cmd_replay)
     return parser
 
 
