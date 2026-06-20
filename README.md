@@ -144,10 +144,43 @@ That's the whole loop — **plan → execute → persist → recall** — runnin
 commands run the real thing. In day-to-day use you just talk to **managerAS** and it writes the
 plan and runs these commands for you.
 
+## Giving the suite a plain-text idea (the normal way)
+**You don't write JSON plans by hand.** The plain-language entry point is **managerAS** — a Copilot
+agent. Start it from the project directory (so it can call the orchestrator) and just type your idea:
+
+```pwsh
+cd C:\Code\AgentSuite
+copilot --agent managerAS
+```
+```text
+> I have an idea for a faster caching algorithm. Check if it's novel, test whether
+  it's actually faster, build a working version, and make slides I can present.
+```
+
+From that one sentence, managerAS does the rest on its own:
+1. asks a couple of clarifying questions (e.g. "what are you comparing against?"),
+2. writes a typed `plan/v1` (the DAG of expert tasks) and routes each step to the right specialist,
+3. runs it via the orchestrator (`python -m agentsuite run --plan-file <plan> --backend copilot`),
+4. quality-checks each worker's output, re-planning on failure, and
+5. hands you back a synthesized, plain-language result.
+
+That's the whole UX: **plain text in → finished result out.** Everything in [Getting started](#getting-started)
+and the [Command reference](#command-reference) below is the *under-the-hood* layer managerAS drives
+for you — useful to run by hand for testing, scripting, or CI, but not required for normal use.
+
+> **Two entry points:**
+> - **Plain-text idea** → `copilot --agent managerAS`, then type. managerAS generates and runs the plan.
+> - **A ready-made JSON plan** (testing / scripting / CI) → `python -m agentsuite run --plan-file …` directly.
+> The `agentsuite run` CLI takes a *JSON plan*, never free text — free text always goes through managerAS.
+
 ## Getting started
+> The orchestrator CLI below is the layer **managerAS** drives for you (see
+> [Giving the suite a plain-text idea](#giving-the-suite-a-plain-text-idea-the-normal-way)). Run it
+> by hand for dry-runs, testing, scripting, or CI.
+
 **Prereqs:** Python 3, the `copilot` CLI on PATH, and the `AS` worker personas in
-`~/.copilot/agents/` (for the `copilot` backend). Install the package first (see
-[Develop](#develop)).
+`~/.copilot/agents/` (for the `copilot` backend — including `managerAS` itself). Install the
+package first (see [Develop](#develop)).
 
 A **plan** is a `plan/v1` JSON document: a `task_id`, a `goal`, and a DAG of `nodes` (each names
 an `agent`, a `prompt`, what it `produces`, and its `inputs`/`depends_on`). A ready-to-run sample
