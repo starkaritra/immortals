@@ -209,6 +209,34 @@ def cmd_route(args: argparse.Namespace) -> int:
     return 0 if ranked else 1
 
 
+def cmd_recall(args: argparse.Namespace) -> int:
+    """Semantic retrieval / graph navigation over the derived memory (Phase 6, AS-023).
+
+    The manager's context-pull seam: ``--query`` ranks prior artifacts + facts by relevance;
+    ``--graph`` instead dumps the navigable knowledge graph. Both are scoped by ``--task-id``/
+    ``--agent`` when given.
+    """
+    from agentsuite.memory import DerivedMemory  # local import keeps base CLI import light
+
+    store = MemoryStore(args.db)
+    try:
+        derived = DerivedMemory(store)
+        indent = 2 if args.pretty else None
+        if args.graph:
+            print(json.dumps(derived.graph(args.task_id), indent=indent, default=str))
+            return 0
+        if not args.query:
+            print(json.dumps({"status": "failed", "error": "provide --query or --graph"}))
+            return 2
+        hits = derived.search(args.query, task_id=args.task_id, agent=args.agent,
+                              top=args.top or 5)
+        print(json.dumps({"query": args.query, "hits": [h.to_dict() for h in hits]},
+                         indent=indent, default=str))
+        return 0 if hits else 1
+    finally:
+        store.close()
+
+
 MEMORY_MCP_SERVER_NAME = "agentsuite-memory"
 
 
@@ -316,6 +344,18 @@ def build_parser() -> argparse.ArgumentParser:
     route.add_argument("--top", type=int, help="Return at most this many candidates.")
     route.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     route.set_defaults(func=cmd_route)
+
+    recall = sub.add_parser("recall",
+                            help="Semantic search / graph navigation over derived memory (Phase 6).")
+    recall.add_argument("--db", required=True, help="SQLite store written by `run --db`.")
+    recall.add_argument("--query", help="Free-text query to rank prior artifacts + facts against.")
+    recall.add_argument("--task-id", help="Scope retrieval/graph to one task.")
+    recall.add_argument("--agent", help="Scope retrieval to one agent's namespace.")
+    recall.add_argument("--top", type=int, help="Return at most this many hits (default 5).")
+    recall.add_argument("--graph", action="store_true",
+                        help="Dump the knowledge graph (nodes + edges) instead of searching.")
+    recall.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
+    recall.set_defaults(func=cmd_recall)
 
     memory = sub.add_parser("memory",
                             help="Manage the persistent memory MCP server registration (shared worker memory).")

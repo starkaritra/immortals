@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from agentsuite.contracts.models import Artifact
-from agentsuite.memory import MemoryStore
+from agentsuite.memory import MemoryStore, SCHEMA_VERSION
 from agentsuite.memory import mcp_server as srv
 from agentsuite.runners import CopilotRunner
 from agentsuite.runners.base import RunRequest
@@ -60,12 +60,12 @@ def test_v1_store_migrates_to_v2_notes(tmp_path):
     s._conn.execute("PRAGMA user_version = 1")
     s._conn.commit()
     s.close()
-    # Reopening must migrate it forward and create the notes table.
+    # Reopening must migrate it forward (through notes) to the current schema version.
     s2 = MemoryStore(db)
     try:
         s2.put_note("t", "k", "v")
         assert s2.get_note("t", "k") == "v"
-        assert s2._conn.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert s2._conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     finally:
         s2.close()
 
@@ -80,6 +80,7 @@ def test_initialize_and_tools_list(store):
     assert names == {
         "memory_get_artifact", "memory_list_artifacts", "memory_put_note",
         "memory_get_note", "memory_list_notes", "memory_recent_events",
+        "memory_add_fact", "memory_list_facts", "memory_search", "memory_graph",
     }
 
 

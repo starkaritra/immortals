@@ -12,6 +12,7 @@ the ``events`` table, so the log cannot be silently rewritten even outside this 
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from dataclasses import dataclass, field
@@ -26,7 +27,7 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 # A free-form key/value scratchpad workers share through the MCP server (AS-021); the KV
 # read-model of AS-006. Split out so it can also be applied as a v1 → v2 migration.
@@ -39,6 +40,25 @@ CREATE TABLE IF NOT EXISTS notes (
     ts      TEXT,
     PRIMARY KEY (task_id, key)
 );
+"""
+
+# Agent-namespaced facts: durable statements an agent asserts, each with provenance (``source``)
+# and an optional ``supersedes`` pointer so stale facts can be retired rather than mutated
+# (memory-poisoning mitigation, R5). Source data alongside artifacts — the derived knowledge graph
+# and vector index in :mod:`agentsuite.memory.derived` index over both. Split out as a v2 → v3
+# migration. (AS-023)
+_FACTS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS facts (
+    fact_id    TEXT PRIMARY KEY,
+    task_id    TEXT NOT NULL,
+    agent      TEXT,
+    text       TEXT NOT NULL,
+    source     TEXT,
+    supersedes TEXT,
+    ts         TEXT
+);
+CREATE INDEX IF NOT EXISTS facts_task_idx ON facts(task_id);
+CREATE INDEX IF NOT EXISTS facts_agent_idx ON facts(agent);
 """
 
 _SCHEMA = """
@@ -74,7 +94,7 @@ CREATE TRIGGER IF NOT EXISTS events_no_update BEFORE UPDATE ON events
 BEGIN SELECT RAISE(ABORT, 'events is append-only'); END;
 CREATE TRIGGER IF NOT EXISTS events_no_delete BEFORE DELETE ON events
 BEGIN SELECT RAISE(ABORT, 'events is append-only'); END;
-""" + _NOTES_SCHEMA
+""" + _NOTES_SCHEMA + _FACTS_SCHEMA
 
 
 @dataclass
@@ -112,6 +132,8 @@ class MemoryStore:
             # Incremental upgrades from older on-disk schemas.
             if current < 2:
                 self._conn.executescript(_NOTES_SCHEMA)
+            if current < 3:
+                self._conn.executescript(_FACTS_SCHEMA)
         elif current > SCHEMA_VERSION:
             raise RuntimeError(
                 f"store schema version {current} > supported {SCHEMA_VERSION}; upgrade agentsuite"
@@ -204,6 +226,43 @@ class MemoryStore:
             r["key"]: {"value": json.loads(r["value"]), "agent": r["agent"], "ts": r["ts"]}
             for r in rows
         }
+
+    def add_fact(self, task_id: str, text: str, agent: str | None = None,
+                 source: str | None = None, fact_id: str | None = None,
+                 supersedes: str | None = None) -> str:
+        """Record an agent-namespaced fact with provenance; returns its ``fact_id``.
+
+        ``supersedes`` retires an older fact (its id) without mutating it — the derived graph emits
+        a ``supersedes`` edge so stale knowledge is traceable, not silently overwritten (R5).
+        """
+        fid = fact_id or hashlib.sha1(
+            f"{task_id}|{agent}|{text}|{source}".encode("utf-8")
+        ).hexdigest()[:16]
+        self._conn.execute(
+            "INSERT INTO facts (fact_id, task_id, agent, text, source, supersedes, ts) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(fact_id) DO UPDATE SET text=excluded.text, agent=excluded.agent, "
+            "source=excluded.source, supersedes=excluded.supersedes, ts=excluded.ts",
+            (fid, task_id, agent, text, source, supersedes, _utc_now()),
+        )
+        self._conn.commit()
+        return fid
+
+    def facts_for(self, task_id: str | None = None, agent: str | None = None) -> list[dict]:
+        """Facts, optionally namespaced by ``task_id`` and/or ``agent`` (the per-agent view)."""
+        clauses, params = [], []
+        if task_id is not None:
+            clauses.append("task_id = ?")
+            params.append(task_id)
+        if agent is not None:
+            clauses.append("agent = ?")
+            params.append(agent)
+        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        rows = self._conn.execute(
+            "SELECT fact_id, task_id, agent, text, source, supersedes, ts "
+            f"FROM facts{where} ORDER BY ts", params
+        ).fetchall()
+        return [dict(r) for r in rows]
 
     # -- read models --------------------------------------------------------------------
 

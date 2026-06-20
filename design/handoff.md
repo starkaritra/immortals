@@ -13,17 +13,27 @@ invoking worker agents as **headless `copilot` processes** and routing typed **a
 between them through a **local SQLite + MCP** memory substrate.
 
 ## 2. Current state
-- **Phase:** **2 DONE** (memory substrate incl. MCP server) + **Phases 3, 4, 5 DONE**. Phases 0–1
-  complete. Remaining is forward scope (Phase 6 derived memory, Phase 7 inventive).
+- **Phase:** **2 DONE** (memory substrate incl. MCP server) + **Phases 3, 4, 5, 6 DONE**. Phases 0–1
+  complete. Remaining is forward scope (Phase 7 inventive).
 - **Built:** `agentsuite/` — `contracts/` (4 schemas + validator + models), `registry/` (loader
   with `route()`/`describe()`) + 9 worker manifests, `runners/` (`AgentRunner`, `MockRunner`,
   `CopilotRunner` Backend A — `--output-format json` usage, `mcp_config` + `env_extra` injection),
   `orchestrator/` (deterministic DAG executor: validation, topo-order, seam validation, event
   trail with `run_id`, storage-agnostic sinks, guardrails + approval gate + registry approval
   floor, resume, bounded-parallel scheduler, partial re-runs), `memory/` (`MemoryStore` — append-
-  only `event/v1` log + `(task_id,id)` artifacts + `notes` KV, schema v2 w/ migration, append-only
-  triggers, `reconstruct`; **`mcp_server.py`** zero-dep stdio JSON-RPC), and `cli.py`
-  (`run [...] [--share-memory]` · `replay` · `agents` · `route` · `memory` — AS-013..022). Tests: **123 passing**.
+  only `event/v1` log + `(task_id,id)` artifacts + `notes` KV + agent-namespaced `facts`, schema v3
+  w/ migration, append-only triggers, `reconstruct`; **`derived.py`** — `DerivedMemory` projects a
+  knowledge graph + a semantic vector index; **`embedding.py`** — pluggable `Embedder` seam + zero-dep
+  `HashingEmbedder`; **`mcp_server.py`** zero-dep stdio JSON-RPC), and `cli.py`
+  (`run [...] [--share-memory]` · `replay` · `agents` · `route` · `recall` · `memory` — AS-013..023).
+  Tests: **144 passing**.
+- **Phase 6 (DONE):** derived memory (AS-023). Agent-namespaced `facts` (with `source` provenance +
+  `supersedes`); `DerivedMemory.reindex/search/graph/neighbors` projects events+artifacts+facts into a
+  rebuildable knowledge graph (`produced_by`/`contains`/`depends_on`/`supersedes`) and a vector index
+  over artifacts+facts; pluggable `Embedder` seam (zero-dep unsigned hashed-BoW default, `sqlite-vec`/
+  model is the named future backend). MCP: `memory_search`/`memory_graph`/`memory_add_fact`/
+  `memory_list_facts`. CLI: `agentsuite recall --db --query|--graph [--task-id] [--agent]`. Verified
+  live (recall search + graph over a real run).
 - **Phase 2 (DONE):** event-sourced store + reconstruction (AS-014); memory MCP server exposing
   artifact/event reads + a shared `notes` KV, injected via `--share-memory` (AS-021); `agentsuite
   memory register/unregister/status` to manage persistent registration (AS-022). Server verified
@@ -146,6 +156,43 @@ between them through a **local SQLite + MCP** memory substrate.
   over the event-log substrate).
 - **Consequences:** define the team/user-model contract as the seam between patrecAS/learnAS
   (writer) and managerAS (reader); it reads from the AS-006 event log.
+
+### [AS-023] Phase 6 derived memory — knowledge graph + semantic vector index (pluggable, zero-dep default)
+- **Status:** accepted.
+- **Context:** Phase 6 — give the manager semantic recall over prior artifacts/facts and a
+  navigable knowledge graph. `architecture.md` named `sqlite-vec`, but the memory layer so far is
+  zero-dependency, deterministic, local-first, offline (a stated posture + reproducible tests).
+  Forcing `sqlite-vec` + a real embedding model now is a one-way door (deps, cost, flaky CI,
+  data-egress for API embedders).
+- **Options considered:**
+  - Pluggable `Embedder` seam + zero-dep deterministic default — pros: works today, offline,
+    deterministic tests, upgrade is a drop-in; cons: brute-force cosine, lower recall at scale.
+  - `sqlite-vec` + real model now — pros: best recall/ANN at scale; cons: heavy deps, non-deterministic,
+    overkill for the current tiny corpus, CI/offline cost.
+  - Zero-dep, no seam — pros: simplest; cons: hard-codes the choice (no upgrade path).
+- **Decision:** option **A**. An `Embedder` interface (`memory/embedding.py`) with a default
+  `HashingEmbedder` (stdlib hashed bag-of-words, L2-normalized) + brute-force cosine. A
+  `DerivedMemory` (`memory/derived.py`) projects the event log + artifacts + a new agent-namespaced
+  `facts` table into two rebuildable read-models: a **knowledge graph** (nodes task/agent/artifact/fact;
+  edges `produced_by`/`contains`/`depends_on`/`supersedes`) and a **vector index** over artifacts + facts.
+  Exposed via MCP (`memory_search`/`memory_graph`/`memory_add_fact`/`memory_list_facts`) and a new
+  `agentsuite recall` CLI. `sqlite-vec` + a real model is reframed as the *named future backend behind
+  the seam*, not the MVP — reconciling the architecture doc.
+- **Rationale:** right for both MVP and production (the seam makes the upgrade a drop-in, no call-site
+  churn), keeps the zero-dep/offline/reproducible posture and deterministic tests, and gives genuinely
+  useful recall over the small current corpus. Derived models are *strictly a function of source data*
+  (`reindex` wipes+rebuilds), so they can't drift ahead of the log (R5 guard); the `facts.supersedes`
+  pointer retires stale facts rather than mutating them (also R5).
+- **Sub-finding (embedder weighting):** signed feature-hashing (unbiased inner products, good for ML)
+  silently zeroed a genuine single-token match on longer docs when a query's opposite-signed tokens
+  collided onto same-sign buckets. Switched the default to **unsigned** hashed bag-of-words so a shared
+  token always *increases* similarity — the correct choice for short-text retrieval ranking. Locked by
+  a regression test.
+- **Consequences:** 22 new tests (144 total). Next: have the orchestrator/manager pull `recall` context
+  automatically (broker, AS-022) and, when scale warrants, drop in a `sqlite-vec`/model backend behind
+  the `Embedder` seam. Schema migrated v2 → v3 (adds `facts`; derived tables created on demand).
+- **Links:** `agentsuite/memory/{embedding,derived,store}.py`, `mcp_server.py`, `cli.py` (`recall`),
+  `tests/test_derived.py`; architecture §"Memory architecture"/"Storage & access"; plan Phase 6.
 
 ### [AS-022] Memory registration command + R7 root cause — broker over MCP for workers
 - **Status:** accepted.

@@ -17,9 +17,22 @@ import os
 import sys
 from typing import Any
 
+from agentsuite.memory.derived import DerivedMemory
 from agentsuite.memory.store import MemoryStore
 
 PROTOCOL_VERSION = "2024-11-05"
+
+_DERIVED_CACHE: dict[int, DerivedMemory] = {}
+
+
+def _derived(store: MemoryStore) -> DerivedMemory:
+    """One :class:`DerivedMemory` per store (keyed by identity) — reused across tool calls."""
+    key = id(store)
+    inst = _DERIVED_CACHE.get(key)
+    if inst is None:
+        inst = DerivedMemory(store)
+        _DERIVED_CACHE[key] = inst
+    return inst
 
 # name -> (description, input-property -> json-type, required-property-names)
 TOOLS: list[tuple[str, str, dict[str, str], list[str]]] = [
@@ -36,6 +49,22 @@ TOOLS: list[tuple[str, str, dict[str, str], list[str]]] = [
      {"task_id": "string"}, ["task_id"]),
     ("memory_recent_events", "Read the recent event log for a task (newest last).",
      {"task_id": "string", "limit": "integer"}, ["task_id"]),
+    ("memory_add_fact",
+     "Record a durable, agent-namespaced fact with provenance (source); optionally supersede an "
+     "older fact by its id. Returns the new fact_id.",
+     {"task_id": "string", "text": "string", "agent": "string", "source": "string",
+      "supersedes": "string"}, ["task_id", "text"]),
+    ("memory_list_facts",
+     "List facts, optionally namespaced by task_id and/or agent (the per-agent view).",
+     {"task_id": "string", "agent": "string"}, []),
+    ("memory_search",
+     "Semantic search over prior artifacts and facts; ranks by relevance to a free-text query. "
+     "Optionally scope by task_id, agent, and kinds ('artifact','fact'). The manager's context pull.",
+     {"query": "string", "task_id": "string", "agent": "string", "top": "integer"}, ["query"]),
+    ("memory_graph",
+     "The derived knowledge graph (nodes + edges: produced_by/contains/depends_on/supersedes), "
+     "optionally scoped to one task. Navigable structure of who produced what.",
+     {"task_id": "string"}, []),
 ]
 TOOL_NAMES = {t[0] for t in TOOLS}
 
@@ -81,6 +110,22 @@ def call_tool(store: MemoryStore, name: str, arguments: dict[str, Any] | None) -
             if isinstance(limit, int) and limit > 0:
                 events = events[-limit:]
             result = events
+        elif name == "memory_add_fact":
+            fid = store.add_fact(args["task_id"], args["text"], args.get("agent"),
+                                 args.get("source"), supersedes=args.get("supersedes"))
+            result = {"ok": True, "fact_id": fid}
+        elif name == "memory_list_facts":
+            result = store.facts_for(args.get("task_id"), args.get("agent"))
+        elif name == "memory_search":
+            derived = _derived(store)
+            top = args.get("top")
+            hits = derived.search(
+                args["query"], task_id=args.get("task_id"), agent=args.get("agent"),
+                top=top if isinstance(top, int) and top > 0 else 5,
+            )
+            result = [h.to_dict() for h in hits]
+        elif name == "memory_graph":
+            result = _derived(store).graph(args.get("task_id"))
         else:
             return json.dumps({"error": f"unknown tool: {name}"}), True
         return json.dumps(result, default=str), False

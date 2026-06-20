@@ -65,11 +65,17 @@ component. Every phase ends with something runnable and a measured result, not b
 - **Exit:** ✅ a 3+ node DAG runs with parallelism, is resumable after an interrupt, supports
   partial re-runs, and a real 2-agent run completed end-to-end.
 
-## Phase 6 — Derived memory (graph + vector)
-- [ ] Project events into the knowledge graph (extend kgraph to suite scope).
-- [ ] `sqlite-vec` vector index over artifacts + facts; semantic retrieval for the manager's context.
-- [ ] Per-agent namespaced views unifying the existing heterogeneous stores.
-- **Exit:** manager retrieves relevant prior artifacts/facts semantically; graph navigable.
+## Phase 6 — Derived memory (graph + vector) — DONE
+- [x] Project events/artifacts/facts into a knowledge graph (`DerivedMemory.graph/neighbors`):
+  nodes task/agent/artifact/fact; edges `produced_by`/`contains`/`depends_on`/`supersedes` (AS-023).
+- [x] Pluggable `Embedder` seam + zero-dep deterministic default (unsigned hashed BoW); vector index
+  over artifacts + facts; semantic `search()` for the manager's context. `sqlite-vec` + a real model
+  is the named future backend behind the seam, not the MVP (AS-023).
+- [x] Agent-namespaced `facts` (with `source` provenance + `supersedes`) + per-agent/per-task scoped
+  views over the shared substrate; MCP (`memory_search`/`memory_graph`/`memory_add_fact`/
+  `memory_list_facts`) + `agentsuite recall` CLI.
+- **Exit:** ✅ manager retrieves relevant prior artifacts/facts semantically (`recall --query`); graph
+  navigable (`recall --graph`). Verified live over a real run; 22 tests.
 
 ## Phase 7 — Future / inventive (scoped, not built)
 - [ ] **Backend C** migration (LangGraph/durable or `--acp`) behind the same `AgentRunner`.
