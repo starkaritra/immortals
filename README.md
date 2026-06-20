@@ -14,7 +14,7 @@ teachAS, prepAS, researchAS, paperAS, patentAS, presentAS, discussAS, …).
   `notes` KV; runs are reconstructable by folding the log), exposed over a zero-dep MCP server.
 
 See `design/architecture.md` (target spec), `design/plan.md` (build order), and
-`design/handoff.md` (state + decision log AS-001…AS-022).
+`design/handoff.md` (state + decision log AS-001…AS-023).
 
 ## What is this, in plain language?
 Think of AgentSuite as **a small expert team that works for you**, with a single project
@@ -75,32 +75,74 @@ stopped instead of starting over.
 **The big idea:** you bring the goal in plain English; the suite brings the expert team,
 the coordination, the quality control, and the memory — and gives you back a finished result.
 
-### How you'd actually trigger it
-In day-to-day use you simply talk to **managerAS** (it writes the plan and runs the orchestrator
-for you). Under the hood, that plan is a small JSON file and the orchestrator runs it — which you
-can also do by hand for testing (see [Getting started](#getting-started)). A tiny two-step version
-of the example above looks like this:
+### Try it yourself — a real demo, start to finish
+You don't need real agents to see the machinery work. The repo ships a sample plan that chains two
+experts — **teach** a concept, then **quiz** on it — and a `mock` backend that runs it instantly
+with no `copilot` calls. Below is an actual run (install first: see [Develop](#develop)).
+
+**Step 1 — run the plan.** The orchestrator executes both steps in dependency order and saves
+everything to a SQLite store:
 
 ```pwsh
-# A ready-made sample: teach a concept, then quiz on it (two experts chained together)
-python -m agentsuite run --plan-file scripts\sample_eigen_plan.json --db runs\demo.db --pretty
-
-# Look back at everything that happened, step by step
-python -m agentsuite replay --db runs\demo.db --task-id teach-quiz-eigenvectors --pretty
+python -m agentsuite run --plan-file scripts\sample_eigen_plan.json --backend mock --db runs\demo.db --pretty
+```
+```jsonc
+{
+  "task_id": "teach-quiz-eigenvectors",
+  "status": "completed",
+  "artifacts": {
+    "eigenvectors-lesson": {            // produced by the first expert (teach)
+      "produced_by": "teachAS",
+      "type": "mock_result",
+      "content": { "echo": "Teach the user what eigenvectors and eigenvalues are ..." },
+      "status": "ok"
+    },
+    "eigenvectors-quiz": {              // second expert; consumed the lesson as input
+      "produced_by": "teachAS",
+      "content": { "echo": "Using the lesson, create and run a quiz ..." },
+      "provenance": { "inputs": ["eigenvectors-lesson"] },
+      "status": "ok"
+    }
+  },
+  "event_count": 8                      // a full, replayable audit trail
+}
 ```
 
-## Status — what you can run today
-**Usable now.** Phases 0–6 are complete: the full spine runs
-end-to-end — `managerAS` emits a typed `plan/v1` DAG, the deterministic orchestrator executes
-it (seam validation, guardrails, approval gates, `--resume`, bounded parallelism, `--from`/`--to`
-partial re-runs), workers run as headless `copilot` processes, and every artifact + event is
-persisted to a reconstructable SQLite store. **Derived memory** adds a navigable knowledge graph
-and zero-dep semantic retrieval over prior artifacts + facts (`agentsuite recall`). A live 2-agent
-run (`experimentAS`→`teachAS`) is verified; **144 tests pass** (`pytest`).
+**Step 2 — recall what was produced, semantically.** Ask in plain words; the derived memory ranks
+the saved work by relevance:
 
-Forward scope (not blocking): Phase 7 inventive items, an optional `sqlite-vec`/embedding-model
-backend behind the existing `Embedder` seam, and the orchestrator **memory-broker** that will give
-custom-agent workers shared read/write memory (see the R7 limitation below).
+```pwsh
+python -m agentsuite recall --db runs\demo.db --query "explain eigenvalues" --pretty
+```
+```json
+{
+  "query": "explain eigenvalues",
+  "hits": [
+    { "kind": "artifact", "ref_id": "eigenvectors-lesson", "agent": "teachAS", "score": 0.282843 }
+  ]
+}
+```
+
+**Step 3 — see the knowledge graph** of who produced what and how the steps depend on each other:
+
+```pwsh
+python -m agentsuite recall --db runs\demo.db --graph --task-id teach-quiz-eigenvectors --pretty
+```
+```jsonc
+{
+  "nodes": [ "task:…", "agent:teachAS", "artifact:…/eigenvectors-lesson", "artifact:…/eigenvectors-quiz" ],
+  "edges": [
+    { "from": "task:…",  "to": "artifact:…/eigenvectors-lesson", "rel": "contains" },
+    { "from": "artifact:…/eigenvectors-quiz", "to": "artifact:…/eigenvectors-lesson", "rel": "depends_on" },
+    { "from": "artifact:…/eigenvectors-lesson", "to": "agent:teachAS", "rel": "produced_by" }
+  ]
+}
+```
+
+That's the whole loop — **plan → execute → persist → recall** — running locally end to end. Swap
+`--backend mock` for the default `copilot` backend (and a multi-expert plan) and the *same*
+commands run the real thing. In day-to-day use you just talk to **managerAS** and it writes the
+plan and runs these commands for you.
 
 ## Getting started
 **Prereqs:** Python 3, the `copilot` CLI on PATH, and the `AS` worker personas in
@@ -131,18 +173,73 @@ python -m agentsuite recall --db runs\eigen.db --query "explain eigenvalues" --p
 python -m agentsuite recall --db runs\eigen.db --graph --pretty
 ```
 
-Handy flags on `run`:
-- `--max-workers N` — execute independent DAG nodes concurrently (default `1` = sequential).
-- `--resume` — skip nodes already completed in `--db` (resume an interrupted run).
-- `--from NODE` / `--to NODE` — re-run only a sub-graph, sourcing the rest from the store.
-- `--max-tokens` / `--max-seconds` / `--max-nodes` / `--max-agent-calls` — guardrail caps.
-- `--approve` (auto-grant) or `--enforce-approvals` (apply each manifest's `approval_default`
-  as a sign-off floor) for the human-in-the-loop gate.
-- `--share-memory` (with `--db`) — inject the memory MCP server into workers (see limitation below).
+Handy flags: `--max-workers` (parallelism), `--resume`, `--from`/`--to` (partial re-runs),
+`--max-tokens`/`--max-seconds` (guardrails), `--approve` (human-in-the-loop). `run` prints a JSON
+result and exits non-zero if the run didn't complete, so it composes in scripts. See the full
+[Command reference](#command-reference) below.
 
-`run` prints a JSON result (`status`, `artifacts`, `event_count`) and exits non-zero if the run
-didn't complete — so it composes in scripts. In normal use **managerAS** writes the plan and calls
-this CLI for you; running it by hand is for testing and dry-runs.
+## Command reference
+Every command is `python -m agentsuite <command> …` and prints JSON to stdout. `--pretty` (indent)
+and `--events` (include the full event trail, where applicable) are available on most commands.
+
+### `run` — execute a plan through the orchestrator
+Validates a `plan/v1`, executes its DAG, and prints the result (`status`, `artifacts`, `event_count`).
+
+| Flag | Description |
+|---|---|
+| `--plan-file PATH` | Read the plan from a JSON file. |
+| `--plan JSON` | Inline plan JSON string (mutually exclusive with `--plan-file`; else reads stdin). |
+| `--backend {copilot,mock}` | Invocation backend. `copilot` (default) runs real headless workers; `mock` echoes prompts for dry-runs/tests. |
+| `--workspace DIR` | Directory workers may access (passed as `--add-dir`); least-privilege by default. |
+| `--db PATH` | Persist the event log + artifacts to this SQLite store (enables replay/resume/recall). |
+| `--share-memory` | Inject the memory MCP server (bound to `--db`) into workers so they share memory. Requires `--db`. |
+| `--max-workers N` | Run independent DAG nodes concurrently, up to `N` (default `1` = sequential). |
+| `--resume` | Skip nodes already completed in `--db` (resume an interrupted run). Requires `--db`. |
+| `--from NODE` | Partial re-run: execute `NODE` and everything downstream; source upstream from `--db`. |
+| `--to NODE` | Partial re-run: execute only `NODE` and its upstream dependencies. |
+| `--max-tokens N` | Guardrail: cap cumulative tokens across the run. |
+| `--max-seconds S` | Guardrail: wall-clock budget for the whole run. |
+| `--max-nodes N` | Guardrail: cap the number of node executions. |
+| `--max-agent-calls N` | Guardrail: cap invocations of any single agent (loop guard). |
+| `--approve` | Auto-approve approval-required nodes (automation mode). |
+| `--enforce-approvals` | Apply each agent manifest's `approval_default` as a sign-off floor. |
+| `--events` | Include the full event trail in the output (default: just a count). |
+| `--pretty` | Pretty-print the JSON output. |
+
+### `replay` — reconstruct a past run from its event log
+| Flag | Description |
+|---|---|
+| `--db PATH` | **Required.** The SQLite store written by `run --db`. |
+| `--task-id ID` | Reconstruct this task by folding its event log. |
+| `--list` | List all task ids in the store instead. |
+| `--events` / `--pretty` | Include the full event trail / pretty-print. |
+
+### `recall` — semantic search & graph navigation over derived memory
+| Flag | Description |
+|---|---|
+| `--db PATH` | **Required.** The SQLite store written by `run --db`. |
+| `--query TEXT` | Free-text query; ranks prior artifacts + facts by relevance. |
+| `--graph` | Dump the knowledge graph (nodes + edges) instead of searching. |
+| `--task-id ID` | Scope retrieval/graph to one task. |
+| `--agent NAME` | Scope retrieval to one agent's namespace. |
+| `--top N` | Return at most `N` hits (default `5`). |
+| `--pretty` | Pretty-print the JSON output. |
+
+### `agents` — list the agent catalogue
+Prints every registered worker manifest (capabilities, `when_to_use`, cost hint, approval default)
+— the table the manager routes against. Flag: `--pretty`.
+
+### `route` — rank agents against a need
+| Flag | Description |
+|---|---|
+| `--need TEXT` | **Required.** Free-text need / capability to match against manifests. |
+| `--top N` | Return at most `N` candidates. |
+| `--pretty` | Pretty-print the JSON output. |
+
+### `memory` — manage persistent MCP-server registration
+`python -m agentsuite memory {register,unregister,status}` adds/removes/inspects the memory MCP
+server in `~/.copilot/mcp-config.json` (for the default agent / interactive sessions). Flag:
+`--config-path PATH` to override the config location. See [Shared worker memory](#shared-worker-memory-mcp).
 
 ## Contracts (the architecture)
 Versioned JSON, validated at every seam — in `agentsuite/contracts/schemas/`:
@@ -157,11 +254,13 @@ pytest
 
 ## Shared worker memory (MCP)
 The event-sourced store is exposed as a zero-dependency MCP server
-(`agentsuite/memory/mcp_server.py`) offering `memory_{get_artifact,list_artifacts,put_note,
-get_note,list_notes,recent_events}`. `run --db <path> --share-memory` injects it (bound to the
-run's store) and sets `AGENTSUITE_MEMORY_DB` for the worker. Register it persistently for the
-default agent / interactive sessions with `agentsuite memory register` (reversible via
-`agentsuite memory unregister`).
+(`agentsuite/memory/mcp_server.py`) offering reads over the blackboard and event log
+(`memory_{get_artifact,list_artifacts,recent_events}`), a shared `notes` KV
+(`memory_{put_note,get_note,list_notes}`), agent-namespaced facts
+(`memory_{add_fact,list_facts}`), and derived-memory queries (`memory_search`, `memory_graph`).
+`run --db <path> --share-memory` injects it (bound to the run's store) and sets
+`AGENTSUITE_MEMORY_DB` for the worker. Register it persistently for the default agent / interactive
+sessions with `agentsuite memory register` (reversible via `agentsuite memory unregister`).
 
 **Known CLI limitation (R7, AS-022):** in headless `-p` mode the copilot CLI exposes MCP tools to
 the *default* agent but **not to custom `--agent` workers** — verified for both `--additional-mcp-config`
