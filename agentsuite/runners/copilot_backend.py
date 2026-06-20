@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from agentsuite.contracts.models import Artifact
+from agentsuite import config
 from .base import AgentRunner, RunRequest, RunnerError
 
 
@@ -35,7 +36,7 @@ class CopilotRunner(AgentRunner):
 
     def __init__(
         self,
-        executable: str = "copilot",
+        executable: str | None = None,
         allow_all_tools: bool = True,
         model: str | None = None,
         extra_args: list[str] | None = None,
@@ -43,7 +44,7 @@ class CopilotRunner(AgentRunner):
         mcp_config: str | None = None,
         env_extra: dict[str, str] | None = None,
     ):
-        self.executable = executable
+        self.executable = executable or config.copilot_bin()
         self.allow_all_tools = allow_all_tools
         self.model = model
         self.extra_args = list(extra_args or [])

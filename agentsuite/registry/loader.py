@@ -14,10 +14,12 @@ from pathlib import Path
 from typing import Any
 
 from agentsuite.contracts import validate
+from agentsuite import config
 
-# Default location: the repo-root ``registry/`` directory (sibling of the ``agentsuite``
-# package), holding one ``<agent>.json`` manifest per worker agent.
-DEFAULT_REGISTRY_DIR = Path(__file__).resolve().parents[2] / "registry"
+# Default location resolves through :mod:`agentsuite.config` (env-overridable), holding one
+# ``<agent>.json`` manifest per worker agent.
+def _default_registry_dir() -> Path:
+    return config.registry_dir()
 
 # Tiny stopword set so free-text routing matches on meaningful tokens only.
 _STOPWORDS = frozenset({
@@ -76,7 +78,7 @@ class Registry:
 
     @classmethod
     def load(cls, directory: Path | str | None = None) -> "Registry":
-        path = Path(directory) if directory is not None else DEFAULT_REGISTRY_DIR
+        path = Path(directory) if directory is not None else _default_registry_dir()
         if not path.is_dir():
             raise FileNotFoundError(f"registry directory not found: {path}")
         manifests: dict[str, AgentManifest] = {}

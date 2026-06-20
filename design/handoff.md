@@ -25,8 +25,12 @@ between them through a **local SQLite + MCP** memory substrate.
   w/ migration, append-only triggers, `reconstruct`; **`derived.py`** — `DerivedMemory` projects a
   knowledge graph + a semantic vector index; **`embedding.py`** — pluggable `Embedder` seam + zero-dep
   `HashingEmbedder`; **`mcp_server.py`** zero-dep stdio JSON-RPC), and `cli.py`
-  (`run [...] [--share-memory]` · `replay` · `agents` · `route` · `recall` · `memory` — AS-013..023).
-  Tests: **144 passing**.
+  (`run [...] [--share-memory]` · `replay` · `agents [install]` · `route` · `recall` · `memory` — AS-013..024).
+  Tests: **159 passing**.
+- **Ship-ready (AS-024):** all paths resolve through `agentsuite/config.py` (env-overridable, no
+  machine-specific hard-coding); the AS personas ship in repo `agents/` (source of truth) and
+  `agentsuite agents install` syncs them into the copilot agents dir. `<name>AS.md` is the locked
+  naming convention for all future (incl. auto-inducted) agents.
 - **Phase 6 (DONE):** derived memory (AS-023). Agent-namespaced `facts` (with `source` provenance +
   `supersedes`); `DerivedMemory.reindex/search/graph/neighbors` projects events+artifacts+facts into a
   rebuildable knowledge graph (`produced_by`/`contains`/`depends_on`/`supersedes`) and a vector index
@@ -156,6 +160,84 @@ between them through a **local SQLite + MCP** memory substrate.
   over the event-log substrate).
 - **Consequences:** define the team/user-model contract as the seam between patrecAS/learnAS
   (writer) and managerAS (reader); it reads from the AS-006 event log.
+
+### [AS-025] Publish + manager-as-agent + conversational surface (proposed, scope)
+- **Status:** proposed (direction locked; build deferred).
+- **Context:** ship AgentSuite publicly and give it a natural always-available voice/chat surface.
+- **Decisions locked with owner:** publish to **PyPI + public GitHub**; **the manager is itself an
+  agent** (not bespoke glue); the front surface is a **Gemini/Alexa-style conversational assistant**
+  the user converses with.
+- **Suggested approach (the seam):** introduce a **manager-as-a-service** layer — a small local
+  service (FastAPI, bound to `127.0.0.1` + token) exposing a versioned, streaming API
+  (**WebSocket**, so clarifying questions + approval gates render interactively). The manager loop
+  behind it either (i) shells out to `copilot --agent managerAS -p` per turn, or (ii) becomes a thin
+  Python "manager driver" (LLM-plans → registry routing → orchestrator) — option (ii) is the clean
+  long-term seam and aligns with Backend C. For the **Alexa/Gemini conversational feel**: add a
+  voice layer over the same API — local **STT** (e.g. `faster-whisper`) + **TTS** (e.g. Piper) +
+  wake-word (e.g. openWakeWord), all local-first to preserve the no-third-party-data posture; the
+  desktop bubble (AS-026) is its visual client. Packaging: console entry point `agentsuite`, ship
+  `registry/`+`agents/` as wheel data, GitHub Actions (pytest), Apache-2.0, SemVer `v0.1.0`.
+- **Open questions:** manager driver (i) vs (ii); voice now vs text-first; cloud vs fully-local STT/TTS.
+- **Links:** AS-024 (config seam), AS-026 (frontend), architecture "Backend C".
+
+### [AS-026] Desktop floating-bubble frontend — Tauri (proposed, scope)
+- **Status:** proposed (framework locked; build deferred).
+- **Context:** a floating, always-on-top "bubble" on Windows/Linux that opens a chat assistant.
+- **Decision:** **Tauri** (Rust + system webview) for the shell — tiny footprint, frameless
+  always-on-top + system tray, cross-platform, secure. It is a **thin client** to the AS-025
+  manager-as-a-service API (WebSocket streaming); all orchestration logic stays server-side so the
+  same API also serves a future web app / VS Code extension / voice surface.
+- **Consequences:** chat UI as a small web frontend embedded in Tauri; must render streamed
+  clarifying-questions + approval-gate prompts; local-only binding + token. Adds a Rust toolchain.
+- **Links:** AS-025 (the API it talks to).
+
+### [AS-027] patrecAS/learnAS — adaptive-learning module as a root-level component (proposed, scope)
+- **Status:** proposed (structure + research locked; build deferred).
+- **Context:** AS-012's planned meta-learning layer becomes a first-class module that learns the
+  user's patterns, adapts agent behaviour, and inducts new agents when the roster has a gap.
+- **Decisions locked with owner:** surface it as its **own root-level folder** (`patrecAS/`, alias
+  learnAS) with its **own `design/` docs maintained separately inside it**; **researchAS runs a deep
+  dive** to ground the approach and author those docs.
+- **Suggested framing (to be validated by the deep dive):** "RLHF-type" here means **preference-based
+  adaptation over the controllable surface (agent prompts, routing, manifests, the roster)** — *not*
+  gradient RLHF on the copilot LLM weights (not ownable). Sequence: (A) retrieval-based
+  personalization on the Phase-6 memory (facts + vectors) → (E) **new-agent induction** (gap-detect
+  from low `route()` scores → generate a `<name>AS.md` persona + `registry/v1` manifest → human
+  approve → install via AS-024) → (B) approved, versioned, A/B-evaluated prompt/manifest diffs →
+  (C) contextual bandit over routing/templates with a learned reward model → (D) DPO/RLHF only if a
+  self-hosted planner is adopted. **Safety rails (non-negotiable):** propose-not-apply, git-versioned
+  + human-approved + reversible agent edits, experimentAS A/B before adopting (anti-Goodhart),
+  local-first privacy with reset/opt-out.
+- **Consequences:** reward signal sourced from the AS-025 UI + the AS-006 event log; the registry's
+  "new manifest routable with no code change" design makes induction tractable.
+- **Links:** AS-012, AS-006 event log, Phase 6 memory (AS-023), AS-024 (`agents install`), AS-025 UI.
+
+### [AS-024] Path decoupling + persona bundling — ship-ready packaging hygiene
+- **Status:** accepted.
+- **Context:** prerequisite for publishing (#1) and for the frontend (#2) / learnAS (#3) seams: the
+  project must run unchanged on any machine, not just the author's checkout. Hard-coded paths lived
+  in `managerAS.md` (`C:\Code\AgentSuite`, `.venv\Scripts\python.exe`); persona `.md` files lived
+  only in the author's `~/.copilot/agents/`.
+- **Options considered:**
+  - Central config module + env overrides — pros: one place, testable, CI/packaged/dev parity;
+    cons: a little indirection.
+  - Sprinkle `os.environ.get` at call sites — pros: minimal; cons: scattered, undiscoverable.
+- **Decision:** added `agentsuite/config.py` — every filesystem location resolves through it with an
+  env override (`AGENTSUITE_HOME`/`_REGISTRY_DIR`/`_AGENTS_DIR`/`_COPILOT_BIN`, `COPILOT_AGENTS_DIR`,
+  `AGENTSUITE_MCP_CONFIG`), defaulting off the install location. Wired `Registry.load`, `CopilotRunner`,
+  and the CLI mcp-config default through it. **The AS personas now ship in the repo** at `agents/`
+  (10 files: 9 workers + managerAS), de-hardcoded; `agentsuite agents install [--dest] [--force]`
+  syncs them into the copilot agents dir (idempotent, never clobbers user edits without `--force`).
+- **Locked conventions:** (1) **personas ship with the package** (source of truth = repo `agents/`);
+  (2) the **`<name>AS.md` naming convention is canonical for all future inducted agents** (incl. any
+  learnAS auto-induction). A guard test asserts no `C:\Code`/author-name strings remain in the package.
+- **Rationale:** removes one-way-door friction before going public; gives a clean, reusable config
+  seam for the frontend service and learnAS; keeps the zero-dep, local-first posture.
+- **Consequences:** 15 new tests (159 total). Wheel packaging of the sibling `registry/`+`agents/`
+  dirs (so they ship in a built wheel, not just source/editable installs) is deferred to the publish
+  ADR (AS-025). No behaviour change for existing source-checkout runs.
+- **Links:** `agentsuite/config.py`, `registry/loader.py`, `runners/copilot_backend.py`, `cli.py`
+  (`agents install`), `agents/`, `tests/test_config.py`.
 
 ### [AS-023] Phase 6 derived memory — knowledge graph + semantic vector index (pluggable, zero-dep default)
 - **Status:** accepted.

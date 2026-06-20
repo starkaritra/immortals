@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from agentsuite import config
 from agentsuite.contracts import ContractError
 from agentsuite.contracts.models import Node, Plan
 from agentsuite.memory import MemoryStore, ReplayResult
@@ -195,9 +196,40 @@ def cmd_replay(args: argparse.Namespace) -> int:
 
 
 def cmd_agents(args: argparse.Namespace) -> int:
+    if getattr(args, "agents_action", None) == "install":
+        return _install_agents(args)
     registry = Registry.load()
     indent = 2 if args.pretty else None
     print(json.dumps({"agents": registry.describe()}, indent=indent, default=str))
+    return 0
+
+
+def _install_agents(args: argparse.Namespace) -> int:
+    """Copy the bundled persona ``.md`` files into the copilot agents dir so `--agent <name>` resolves.
+
+    Source is the package's bundled ``agents/`` (override: ``AGENTSUITE_AGENTS_DIR``); destination is
+    the copilot persona dir (``--dest`` or ``COPILOT_AGENTS_DIR``, default ``~/.copilot/agents``).
+    Skips files that already exist unless ``--force`` (never clobbers a user's edits silently).
+    """
+    import shutil
+
+    src = config.agents_dir()
+    if not src.is_dir():
+        print(json.dumps({"status": "failed", "error": f"bundled agents dir not found: {src}"}))
+        return 2
+    dest = Path(args.dest) if args.dest else config.copilot_agents_dir()
+    dest.mkdir(parents=True, exist_ok=True)
+    installed, skipped = [], []
+    for md in sorted(src.glob("*.md")):
+        target = dest / md.name
+        if target.exists() and not args.force:
+            skipped.append(md.name)
+            continue
+        shutil.copy2(md, target)
+        installed.append(md.name)
+    print(json.dumps({"status": "ok", "dest": str(dest),
+                      "installed": installed, "skipped": skipped,
+                      "note": "re-run with --force to overwrite existing personas" if skipped else None}))
     return 0
 
 
@@ -243,7 +275,7 @@ MEMORY_MCP_SERVER_NAME = "agentsuite-memory"
 def _user_mcp_config_path(args: argparse.Namespace) -> Path:
     if getattr(args, "config_path", None):
         return Path(args.config_path)
-    return Path.home() / ".copilot" / "mcp-config.json"
+    return config.copilot_mcp_config_path()
 
 
 def cmd_memory(args: argparse.Namespace) -> int:
@@ -335,7 +367,12 @@ def build_parser() -> argparse.ArgumentParser:
     replay.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     replay.set_defaults(func=cmd_replay)
 
-    agents = sub.add_parser("agents", help="List registered agent manifests (the routing catalogue).")
+    agents = sub.add_parser("agents",
+                            help="List the agent catalogue, or `agents install` the bundled personas.")
+    agents.add_argument("agents_action", nargs="?", choices=["list", "install"], default="list",
+                        help="`list` (default) the manifests, or `install` bundled personas into the copilot agents dir.")
+    agents.add_argument("--dest", help="Install destination (default: COPILOT_AGENTS_DIR or ~/.copilot/agents).")
+    agents.add_argument("--force", action="store_true", help="Overwrite personas that already exist.")
     agents.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     agents.set_defaults(func=cmd_agents)
 
