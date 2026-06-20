@@ -20,12 +20,32 @@ git-versioned, human-approved, and reversible; adaptations are A/B-evaluated via
 adoption (anti-Goodhart); behavioural data stays local-first with reset/opt-out.
 
 ## Status
-Scaffold only. **researchAS is running a deep dive** and will author/maintain the docs in `design/`
-(architecture, the literature/landscape deep-dive, decisions, and a phased plan). No code yet.
+**Design complete (researchAS deep dive done); no code yet.** The grounded research and the module
+design now live in `design/`:
+
+- [`design/deep-dive.md`](design/deep-dive.md) — literature/landscape survey (RLHF/DPO/RLAIF,
+  prompt optimization, self-improving agents, contextual bandits, agent induction, retrieval
+  personalization, safety failure modes) with verified citations + a "what this means for patrecAS"
+  synthesis per topic.
+- [`design/architecture.md`](design/architecture.md) — module architecture over the *real* AgentSuite
+  seams (AS-006 event log, Phase-6 derived memory, `Registry.route()`, `agents install`): components,
+  data flow, contracts, and how managerAS consumes the user/team model.
+- [`design/decisions.md`](design/decisions.md) — module ADRs `PAT-001…PAT-010` (the RLHF reframing,
+  the A→E→B→C→D staging, the safety rails, new-agent induction, storage choice).
+- [`design/plan.md`](design/plan.md) — the phased, buildable roadmap.
+
+**Headline finding:** literal RLHF is infeasible (no weights to train on the black-box Copilot
+planner); the validated reframing is **preference-based adaptation over the controllable surface**
+(prompts, routing, manifests, roster). Staged **A → E → B → C → D**; DPO/weight-level RLHF is
+research-only, contingent on a self-hosted planner.
 
 ## Layout
 ```
 patrecAS/
   README.md         <- this file
-  design/           <- module-specific design docs (authored by researchAS)
+  design/
+    deep-dive.md    <- literature/landscape survey (centerpiece)
+    architecture.md <- module architecture over AgentSuite's real seams
+    decisions.md    <- module ADRs (PAT-001…)
+    plan.md         <- phased roadmap (A→E→B→C→D)
 ```
