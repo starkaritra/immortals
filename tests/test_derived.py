@@ -6,10 +6,10 @@ import json
 
 import pytest
 
-from agentsuite.cli import main
-from agentsuite.contracts.models import Artifact
-from agentsuite.memory import DerivedMemory, HashingEmbedder, MemoryStore, cosine, default_embedder
-from agentsuite.memory import mcp_server as srv
+from immortals.cli import main
+from immortals.contracts.models import Artifact
+from immortals.memory import DerivedMemory, HashingEmbedder, MemoryStore, cosine, default_embedder
+from immortals.memory import mcp_server as srv
 
 
 @pytest.fixture

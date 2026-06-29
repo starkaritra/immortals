@@ -6,13 +6,13 @@ import json
 
 import pytest
 
-from agentsuite.cli import main
-from agentsuite.contracts.models import Node, Plan
-from agentsuite.memory import MemoryStore
-from agentsuite.orchestrator import Orchestrator
-from agentsuite.orchestrator.runner import PlanError
-from agentsuite.registry import Registry
-from agentsuite.runners import MockRunner
+from immortals.cli import main
+from immortals.contracts.models import Node, Plan
+from immortals.memory import MemoryStore
+from immortals.orchestrator import Orchestrator
+from immortals.orchestrator.runner import PlanError
+from immortals.registry import Registry
+from immortals.runners import MockRunner
 
 
 @pytest.fixture

@@ -6,12 +6,12 @@ import json
 
 import pytest
 
-from agentsuite.cli import main
-from agentsuite.contracts.models import Artifact, Node, Plan
-from agentsuite.memory import MemoryStore
-from agentsuite.orchestrator import Orchestrator
-from agentsuite.registry import Registry
-from agentsuite.runners import MockRunner
+from immortals.cli import main
+from immortals.contracts.models import Artifact, Node, Plan
+from immortals.memory import MemoryStore
+from immortals.orchestrator import Orchestrator
+from immortals.registry import Registry
+from immortals.runners import MockRunner
 
 
 def _event(task_id: str, n: int, etype: str, **fields) -> dict:

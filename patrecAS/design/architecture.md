@@ -1,13 +1,13 @@
 # patrecAS / learnAS — Architecture
 
-> The design spec for the AgentSuite adaptive-learning module (`patrecAS`, alias *learnAS*),
+> The design spec for the Immortals adaptive-learning module (`patrecAS`, alias *learnAS*),
 > controlled by **[AS-027]** (scope), **[AS-012]** (the writer/reader seam), **[AS-006]** (the event
 > log it reads), and **[AS-023]** (the Phase-6 derived memory it builds on). The research grounding is
 > in `deep-dive.md`; the decisions are `PAT-001…` in `decisions.md`; the build order is `plan.md`.
 >
 > **Status:** design only — **no code yet**. This file describes the *target* module in the repo's
 > declarative, current-state style (as `../design/architecture.md` is the normative spec for the
-> orchestrator). Every component below names the **real existing AgentSuite seam** it attaches to, so
+> orchestrator). Every component below names the **real existing Immortals seam** it attaches to, so
 > nothing here invents new substrate.
 
 ---
@@ -15,12 +15,12 @@
 ## North star
 
 patrecAS learns the user's/team's characteristics and patterns, maintains a **user/team model**, and
-turns that model into **proposed, human-gated, A/B-evaluated adaptations** of the AgentSuite surface
+turns that model into **proposed, human-gated, A/B-evaluated adaptations** of the Immortals surface
 it is allowed to touch — agent prompts/descriptions, routing, registry manifests, and the roster —
 **without ever fine-tuning the (vendor) LLM weights**. It is the *writer* of the team/user model;
 managerAS and the worker agents are *readers* (the [AS-012] seam).
 
-**Three invariants** (inherited from AgentSuite, non-negotiable):
+**Three invariants** (inherited from Immortals, non-negotiable):
 1. **Propose, never apply.** patrecAS only emits proposals; humans approve; the orchestrator gate and
    git enforce it.
 2. **Learning lives in data + versioned files, never in weights.** User model = facts; adaptations =
@@ -40,7 +40,7 @@ managerAS and the worker agents are *readers* (the [AS-012] seam).
 | **experimentAS** | evaluates a candidate adaptation (A/B) before adoption — the anti-Goodhart gate. |
 | **human (via AS-025 UI / approval gate)** | the only actor that *adopts* an adaptation or *inducts* an agent. |
 
-Mirrors AgentSuite's split: **deterministic mechanism in Python; LLM judgment confined to a named
+Mirrors Immortals's split: **deterministic mechanism in Python; LLM judgment confined to a named
 agent and explicit escalation points.**
 
 ---
@@ -49,7 +49,7 @@ agent and explicit escalation points.**
 
 ```
                           ┌──────────────────────────────────────────────────────────┐
-                          │                   AgentSuite substrate                    │
+                          │                   Immortals substrate                    │
                           │  events (append-only)   facts   artifacts   notes  (SQLite)│
                           │  DerivedMemory: knowledge graph + vector index (AS-023)   │
                           │  Registry.route() / manifests (registry/)   agents/ (.md) │
@@ -87,7 +87,7 @@ agent and explicit escalation points.**
 | **Facts** | `MemoryStore.add_fact(... agent, source, supersedes)`, `facts_for(agent=)` | the user/team model is stored here, namespaced `agent="patrecAS"`, updated via `supersedes` (never mutated). |
 | **Derived memory** | `DerivedMemory.search()`, `graph()`, `Embedder` seam | semantic retrieval of the user model into the manager's context; `Embedder` reused for need-clustering. |
 | **Routing** | `Registry.route(need)` → ranked `{agent, score, reasons}` | gap signal (low top score); bandit re-ranker target (Stage C). |
-| **Roster deploy** | repo `agents/` + `registry/`, `agentsuite agents install`, `config.py` | where an inducted agent's `.md` + manifest land, idempotently and reversibly. |
+| **Roster deploy** | repo `agents/` + `registry/`, `immortals agents install`, `config.py` | where an inducted agent's `.md` + manifest land, idempotently and reversibly. |
 | **Approval gate** | orchestrator `approval_handler`, `approval_requested`/`granted` events | the human sign-off on every proposal/induction. |
 | **Evaluation** | experimentAS manifest (`ab_test`, `experiment_design`, `analysis_report`) | the A/B that must pass before adoption. |
 
@@ -192,7 +192,7 @@ no existing schema changes.
   `Embedder` (zero-dep `HashingEmbedder` default; `sqlite-vec`/real model is the named future backend
   behind the same seam, exactly as [AS-023] framed it).
 - **Access — MCP/CLI, consistent with the suite.** patrecAS exposes reads/proposals via the same
-  MCP + `agentsuite` CLI surface (e.g. `patrecAS model`, `patrecAS propose`, `patrecAS induct`,
+  MCP + `immortals` CLI surface (e.g. `patrecAS model`, `patrecAS propose`, `patrecAS induct`,
   `patrecAS reset`), so managerAS and the human use one uniform interface.
 
 ---

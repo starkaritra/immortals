@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 
-from agentsuite.runners import CopilotRunner
+from immortals.runners import CopilotRunner
 
 
 def _jsonl(*objs: dict) -> str:
@@ -64,7 +64,7 @@ def test_parse_jsonl_empty_output():
 
 def test_command_uses_json_output_not_silent():
     runner = CopilotRunner()
-    from agentsuite.runners.base import RunRequest
+    from immortals.runners.base import RunRequest
     req = RunRequest(agent="teachAS", node_id="n", task_id="t", prompt="p", produces="a")
     cmd = runner._build_command(req, "p")
     assert "--output-format" in cmd and "json" in cmd
@@ -74,8 +74,8 @@ def test_command_uses_json_output_not_silent():
 
 def test_parsed_tokens_feed_the_guardrail():
     """The parser's token total flows into provenance.cost.total_tokens, which the guardrail reads."""
-    from agentsuite.contracts.models import Artifact
-    from agentsuite.orchestrator.guardrails import tokens_of
+    from immortals.contracts.models import Artifact
+    from immortals.orchestrator.guardrails import tokens_of
 
     parsed = CopilotRunner._parse_jsonl(_jsonl(
         {"type": "assistant.message", "data": {"content": "x", "outputTokens": 42}},
@@ -85,3 +85,29 @@ def test_parsed_tokens_feed_the_guardrail():
                    content={"response": parsed["response"]},
                    provenance={"cost": {"total_tokens": parsed["output_tokens"]}})
     assert tokens_of(art) == 42
+
+
+def test_run_records_input_ids_in_provenance(monkeypatch):
+    """Regression: the copilot backend must record provenance.inputs (the source of the derived
+    graph's depends_on edges) — like MockRunner. Without it, real runs render an edge-less DAG."""
+    import subprocess
+    from types import SimpleNamespace
+
+    from immortals.contracts.models import Artifact
+    from immortals.runners import copilot_backend
+    from immortals.runners.base import RunRequest
+
+    upstream = Artifact(id="lesson", produced_by="teachAS", node_id="n0", task_id="t",
+                        type="agent_response", content={"response": "x"})
+    req = RunRequest(agent="teachAS", node_id="n1", task_id="t", prompt="p", produces="quiz",
+                     inputs={"lesson": upstream})
+
+    monkeypatch.setattr(copilot_backend.shutil, "which", lambda _: "copilot")
+    fake = SimpleNamespace(
+        stdout=_jsonl({"type": "assistant.message", "data": {"content": "done", "outputTokens": 3}},
+                      {"type": "result", "exitCode": 0, "usage": {}}),
+        stderr="", returncode=0)
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: fake)
+
+    art = copilot_backend.CopilotRunner().run(req)
+    assert art.provenance["inputs"] == ["lesson"]

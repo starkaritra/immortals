@@ -12,10 +12,10 @@ from __future__ import annotations
 
 import sys
 
-from agentsuite.contracts.models import Plan, Node
-from agentsuite.orchestrator import Orchestrator
-from agentsuite.registry import Registry
-from agentsuite.runners import CopilotRunner
+from immortals.contracts.models import Plan, Node
+from immortals.orchestrator import Orchestrator
+from immortals.registry import Registry
+from immortals.runners import CopilotRunner
 
 
 def main() -> int:

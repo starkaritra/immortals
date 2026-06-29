@@ -11,7 +11,7 @@ venv/
 .mypy_cache/
 .ruff_cache/
 
-# AgentSuite local state (substrate is local-first, not committed)
+# Immortals local state (substrate is local-first, not committed)
 *.sqlite
 *.sqlite3
 *.db
@@ -19,7 +19,7 @@ venv/
 *.db-shm
 runs/
 out/
-.agentsuite/
+.immortals/
 memory.json
 
 # Secrets / env

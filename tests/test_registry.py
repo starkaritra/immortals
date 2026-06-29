@@ -6,8 +6,8 @@ import json
 
 import pytest
 
-from agentsuite.registry import Registry, AgentManifest
-from agentsuite.contracts import ContractError
+from immortals.registry import Registry, AgentManifest
+from immortals.contracts import ContractError
 
 
 def test_loads_real_registry():

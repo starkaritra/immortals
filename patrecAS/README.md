@@ -1,8 +1,8 @@
 # patrecAS / learnAS — adaptive-learning module (research in progress)
 
-> Root-level AgentSuite module. **Controlling decision:** `../design/handoff.md` → **[AS-027]**
+> Root-level Immortals module. **Controlling decision:** `../design/handoff.md` → **[AS-027]**
 > (and the original scope **[AS-012]**). This module keeps its **own design docs** in `design/`,
-> maintained separately from the top-level AgentSuite design set.
+> maintained separately from the top-level Immortals design set.
 
 ## Purpose (one line)
 Learn the user's characteristics and patterns, understand what they need, adapt each agent's
@@ -10,7 +10,7 @@ behaviour accordingly, and — when the roster has a capability gap — propose,
 new `<name>AS.md` agent into the suite.
 
 ## Framing (to be validated by the deep dive)
-"RLHF-type" here means **preference-based adaptation over the surface AgentSuite controls** — agent
+"RLHF-type" here means **preference-based adaptation over the surface Immortals controls** — agent
 prompts/descriptions, routing, registry manifests, and the agent roster — **not** gradient RLHF on
 the copilot LLM weights (those aren't ownable). The reward signal is sourced from explicit/implicit
 user feedback in the AS-006 event log and the (future) conversational UI (AS-025).
@@ -27,7 +27,7 @@ design now live in `design/`:
   prompt optimization, self-improving agents, contextual bandits, agent induction, retrieval
   personalization, safety failure modes) with verified citations + a "what this means for patrecAS"
   synthesis per topic.
-- [`design/architecture.md`](design/architecture.md) — module architecture over the *real* AgentSuite
+- [`design/architecture.md`](design/architecture.md) — module architecture over the *real* Immortals
   seams (AS-006 event log, Phase-6 derived memory, `Registry.route()`, `agents install`): components,
   data flow, contracts, and how managerAS consumes the user/team model.
 - [`design/decisions.md`](design/decisions.md) — module ADRs `PAT-001…PAT-010` (the RLHF reframing,
@@ -45,7 +45,7 @@ patrecAS/
   README.md         <- this file
   design/
     deep-dive.md    <- literature/landscape survey (centerpiece)
-    architecture.md <- module architecture over AgentSuite's real seams
+    architecture.md <- module architecture over Immortals's real seams
     decisions.md    <- module ADRs (PAT-001…)
     plan.md         <- phased roadmap (A→E→B→C→D)
 ```

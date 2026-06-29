@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://immortals/contracts/plan.v1.json",
+  "title": "plan/v1",
+  "description": "A directed acyclic graph of agent calls emitted by managerAS and executed by the orchestrator.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "task_id", "goal", "nodes"],
+  "properties": {
+    "schema": { "const": "plan/v1" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "goal": { "type": "string", "minLength": 1 },
+    "objective": { "type": "string" },
+    "key_results": { "type": "array", "items": { "type": "string" } },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/node" }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/edge" }
+    }
+  },
+  "$defs": {
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "agent", "prompt", "produces"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "agent": { "type": "string", "minLength": 1 },
+        "prompt": { "type": "string", "minLength": 1 },
+        "inputs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Artifact ids this node consumes."
+        },
+        "depends_on": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Explicit upstream node ids this node depends on, in addition to data dependencies implied by inputs."
+        },
+        "produces": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Artifact id this node emits."
+        },
+        "context_refs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Memory references (fact/artifact ids), never inlined blobs."
+        },
+        "success_criteria": { "type": "string" },
+        "reversibility": { "enum": ["reversible", "irreversible"], "default": "reversible" },
+        "approval": { "enum": ["required", "none"], "default": "none" },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "max_tokens": { "type": "integer", "minimum": 1 },
+            "timeout_s": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "properties": {
+        "from": { "type": "string", "minLength": 1 },
+        "to": { "type": "string", "minLength": 1 },
+        "on": { "enum": ["success", "failure", "always"], "default": "success" }
+      }
+    }
+  }
+}

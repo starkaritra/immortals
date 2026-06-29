@@ -1,0 +1,12 @@
+1
+00:00:00,100 --> 00:00:02,216
+This is real today, at minutes-scale.
+
+2
+00:00:02,166 --> 00:00:09,025
+The vision is bigger: a long-running agent you delegate to for days — that survives restarts, learns which calls you want to make, and earns more autonomy as it does.
+
+3
+00:00:09,025 --> 00:00:11,500
+Always task-scoped; never watching your life.
+

@@ -1,12 +1,21 @@
-# AgentSuite
+# Immortals
+
+> **You bring the goal in plain English; a manager agent brings the expert team, the
+> coordination, the quality control, and the memory — and gives you back a finished result.**
+
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
+[![Tests](https://img.shields.io/badge/tests-173%20passing-brightgreen.svg)](tests/)
+[![Status](https://img.shields.io/badge/status-alpha-orange.svg)](CHANGELOG.md)
 
 A manager-orchestrated multi-agent system over the **AS agent suite** (coderAS, experimentAS,
-teachAS, prepAS, researchAS, paperAS, patentAS, presentAS, discussAS, …).
+teachAS, prepAS, researchAS, paperAS, patentAS, presentAS, discussAS, …). *Immortals is the
+orchestration system; the AS agents are "the immortals" it commands.*
 
 - **managerAS** — the single user-facing agent. Turns a task (structured or vague) into a
   typed **plan** (a DAG of agent calls), routes each node to the right specialist, holds a
   quality bar, re-plans on failure, and synthesizes the result.
-- **Orchestrator** (`agentsuite/`) — deterministic Python. Validates the plan, executes the
+- **Orchestrator** (`immortals/`) — deterministic Python. Validates the plan, executes the
   DAG, validates every seam contract, runs guardrails, and mediates all inter-agent I/O.
 - **Workers** — the existing `~/.copilot/agents/*.md` personas, invoked through a swappable
   `AgentRunner` (Backend A = headless `copilot` today; LangGraph/ACP later).
@@ -14,10 +23,37 @@ teachAS, prepAS, researchAS, paperAS, patentAS, presentAS, discussAS, …).
   `notes` KV; runs are reconstructable by folding the log), exposed over a zero-dep MCP server.
 
 See `design/architecture.md` (target spec), `design/plan.md` (build order), and
-`design/handoff.md` (state + decision log AS-001…AS-023).
+`design/handoff.md` (state + decision log AS-001…AS-028).
+
+## Architecture at a glance
+```mermaid
+flowchart TD
+    U([You · plain text]) --> M[managerAS<br/>plan · route · synthesize]
+    M -->|plan/v1 DAG| CLI[immortals CLI]
+    CLI --> ORCH[Orchestrator<br/>validate · topo-order · guardrails]
+    ORCH -->|invoke| RUN[AgentRunner<br/>copilot · mock]
+    RUN --> W[AS workers<br/>coderAS · teachAS · …]
+    W -->|artifact/v1| ORCH
+    ORCH <-->|events + artifacts| MEM[(SQLite<br/>event log + blackboard)]
+    MEM --> DER[Derived memory<br/>knowledge graph + semantic recall]
+    CON[[Versioned contracts<br/>plan · artifact · registry · event]] -. validates every seam .- ORCH
+```
+
+## Quickstart
+```pwsh
+python -m venv .venv; .\.venv\Scripts\Activate.ps1
+pip install -e ".[dev]"
+pytest                                   # 159 tests, no external services
+
+# run the bundled sample plan (teach → quiz) with the no-copilot mock backend
+immortals run --plan-file scripts\sample_eigen_plan.json --backend mock --pretty
+```
+Day-to-day you just talk to **managerAS** (`copilot --agent managerAS`) and it writes and runs
+the plan for you — see [Giving the suite a plain-text idea](#giving-the-suite-a-plain-text-idea-the-normal-way).
+Every command is also available as `python -m immortals …`.
 
 ## What is this, in plain language?
-Think of AgentSuite as **a small expert team that works for you**, with a single project
+Think of Immortals as **a small expert team that works for you**, with a single project
 manager you talk to. You describe what you want in normal words — "help me turn this idea into a
 research paper", "teach me how transformers work", "get me ready for my interview" — and the
 manager figures out *who* on the team should do *what*, in *what order*, then hands you back the
@@ -84,7 +120,7 @@ with no `copilot` calls. Below is an actual run (install first: see [Develop](#d
 everything to a SQLite store:
 
 ```pwsh
-python -m agentsuite run --plan-file scripts\sample_eigen_plan.json --backend mock --db runs\demo.db --pretty
+python -m immortals run --plan-file scripts\sample_eigen_plan.json --backend mock --db runs\demo.db --pretty
 ```
 ```jsonc
 {
@@ -112,7 +148,7 @@ python -m agentsuite run --plan-file scripts\sample_eigen_plan.json --backend mo
 the saved work by relevance:
 
 ```pwsh
-python -m agentsuite recall --db runs\demo.db --query "explain eigenvalues" --pretty
+python -m immortals recall --db runs\demo.db --query "explain eigenvalues" --pretty
 ```
 ```json
 {
@@ -126,7 +162,7 @@ python -m agentsuite recall --db runs\demo.db --query "explain eigenvalues" --pr
 **Step 3 — see the knowledge graph** of who produced what and how the steps depend on each other:
 
 ```pwsh
-python -m agentsuite recall --db runs\demo.db --graph --task-id teach-quiz-eigenvectors --pretty
+python -m immortals recall --db runs\demo.db --graph --task-id teach-quiz-eigenvectors --pretty
 ```
 ```jsonc
 {
@@ -149,7 +185,7 @@ plan and runs these commands for you.
 agent. Start it from the project directory (so it can call the orchestrator) and just type your idea:
 
 ```pwsh
-cd C:\Code\AgentSuite
+cd C:\Code\Immortals
 copilot --agent managerAS
 ```
 ```text
@@ -160,7 +196,7 @@ copilot --agent managerAS
 From that one sentence, managerAS does the rest on its own:
 1. asks a couple of clarifying questions (e.g. "what are you comparing against?"),
 2. writes a typed `plan/v1` (the DAG of expert tasks) and routes each step to the right specialist,
-3. runs it via the orchestrator (`python -m agentsuite run --plan-file <plan> --backend copilot`),
+3. runs it via the orchestrator (`python -m immortals run --plan-file <plan> --backend copilot`),
 4. quality-checks each worker's output, re-planning on failure, and
 5. hands you back a synthesized, plain-language result.
 
@@ -170,8 +206,8 @@ for you — useful to run by hand for testing, scripting, or CI, but not require
 
 > **Two entry points:**
 > - **Plain-text idea** → `copilot --agent managerAS`, then type. managerAS generates and runs the plan.
-> - **A ready-made JSON plan** (testing / scripting / CI) → `python -m agentsuite run --plan-file …` directly.
-> The `agentsuite run` CLI takes a *JSON plan*, never free text — free text always goes through managerAS.
+> - **A ready-made JSON plan** (testing / scripting / CI) → `python -m immortals run --plan-file …` directly.
+> The `immortals run` CLI takes a *JSON plan*, never free text — free text always goes through managerAS.
 
 ## Getting started
 > The orchestrator CLI below is the layer **managerAS** drives for you (see
@@ -188,22 +224,22 @@ lives at `scripts/sample_eigen_plan.json` (teach eigenvectors → quiz on them).
 
 ```pwsh
 # 0. See the agent catalogue and route a free-text need to a specialist
-python -m agentsuite agents --pretty
-python -m agentsuite route --need "teach me a concept and quiz me" --pretty
+python -m immortals agents --pretty
+python -m immortals route --need "teach me a concept and quiz me" --pretty
 
 # 1. Dry-run the sample plan with the mock backend (no copilot calls) to learn the shape
-python -m agentsuite run --plan-file scripts\sample_eigen_plan.json --backend mock --pretty
+python -m immortals run --plan-file scripts\sample_eigen_plan.json --backend mock --pretty
 
 # 2. Run it for real, persisting the event log + artifacts to a SQLite store
-python -m agentsuite run --plan-file scripts\sample_eigen_plan.json --db runs\eigen.db --pretty
+python -m immortals run --plan-file scripts\sample_eigen_plan.json --db runs\eigen.db --pretty
 
 # 3. Reconstruct / audit the run by folding its event log
-python -m agentsuite replay --db runs\eigen.db --list
-python -m agentsuite replay --db runs\eigen.db --task-id teach-quiz-eigenvectors --pretty
+python -m immortals replay --db runs\eigen.db --list
+python -m immortals replay --db runs\eigen.db --task-id teach-quiz-eigenvectors --pretty
 
 # 4. Semantic recall over what's been produced (derived memory), or dump the knowledge graph
-python -m agentsuite recall --db runs\eigen.db --query "explain eigenvalues" --pretty
-python -m agentsuite recall --db runs\eigen.db --graph --pretty
+python -m immortals recall --db runs\eigen.db --query "explain eigenvalues" --pretty
+python -m immortals recall --db runs\eigen.db --graph --pretty
 ```
 
 Handy flags: `--max-workers` (parallelism), `--resume`, `--from`/`--to` (partial re-runs),
@@ -212,7 +248,7 @@ result and exits non-zero if the run didn't complete, so it composes in scripts.
 [Command reference](#command-reference) below.
 
 ## Command reference
-Every command is `python -m agentsuite <command> …` and prints JSON to stdout. `--pretty` (indent)
+Every command is `python -m immortals <command> …` and prints JSON to stdout. `--pretty` (indent)
 and `--events` (include the full event trail, where applicable) are available on most commands.
 
 ### `run` — execute a plan through the orchestrator
@@ -238,6 +274,13 @@ Validates a `plan/v1`, executes its DAG, and prints the result (`status`, `artif
 | `--enforce-approvals` | Apply each agent manifest's `approval_default` as a sign-off floor. |
 | `--events` | Include the full event trail in the output (default: just a count). |
 | `--pretty` | Pretty-print the JSON output. |
+| `--quiet` | Suppress the live per-agent progress stream. |
+
+By default, `run` streams a **live per-agent progress + reflection** to **stderr** as the DAG
+executes (each node start, each agent's output with a one-line summary of what it produced, input
+deps, and failures/approvals) — so a long run isn't a silent black box. It's ASCII-only (renders on
+any console) and goes to **stderr**, so the machine-readable JSON result on **stdout** is unchanged
+and still composes in scripts. Use `--quiet` to turn the stream off.
 
 ### `replay` — reconstruct a past run from its event log
 | Flag | Description |
@@ -270,12 +313,20 @@ Prints every registered worker manifest (capabilities, `when_to_use`, cost hint,
 | `--pretty` | Pretty-print the JSON output. |
 
 ### `memory` — manage persistent MCP-server registration
-`python -m agentsuite memory {register,unregister,status}` adds/removes/inspects the memory MCP
+`python -m immortals memory {register,unregister,status}` adds/removes/inspects the memory MCP
 server in `~/.copilot/mcp-config.json` (for the default agent / interactive sessions). Flag:
 `--config-path PATH` to override the config location. See [Shared worker memory](#shared-worker-memory-mcp).
 
+### `dashboard` — read-only web inspector (prototype frontend)
+`immortals dashboard --db <run.db>` serves a localhost web UI with four read-only views over a run
+store: a **runs list**, a **run detail** (DAG + event timeline + per-node cost), an **artifact
+viewer**, and **semantic recall** + knowledge graph. Needs the optional extra
+(`pip install -e ".[dashboard]"`); FastAPI/uvicorn stay out of the lean core. Flags: `--host`
+(default `127.0.0.1`), `--port` (default `8765`). It's the read-half seed of the future
+manager-as-a-service API — see `design/prototype-frontend-handoff.md`.
+
 ## Contracts (the architecture)
-Versioned JSON, validated at every seam — in `agentsuite/contracts/schemas/`:
+Versioned JSON, validated at every seam — in `immortals/contracts/schemas/`:
 `plan/v1`, `artifact/v1`, `registry/v1`, `event/v1`.
 
 ## Develop
@@ -287,18 +338,18 @@ pytest
 
 ## Shared worker memory (MCP)
 The event-sourced store is exposed as a zero-dependency MCP server
-(`agentsuite/memory/mcp_server.py`) offering reads over the blackboard and event log
+(`immortals/memory/mcp_server.py`) offering reads over the blackboard and event log
 (`memory_{get_artifact,list_artifacts,recent_events}`), a shared `notes` KV
 (`memory_{put_note,get_note,list_notes}`), agent-namespaced facts
 (`memory_{add_fact,list_facts}`), and derived-memory queries (`memory_search`, `memory_graph`).
 `run --db <path> --share-memory` injects it (bound to the run's store) and sets
-`AGENTSUITE_MEMORY_DB` for the worker. Register it persistently for the default agent / interactive
-sessions with `agentsuite memory register` (reversible via `agentsuite memory unregister`).
+`IMMORTALS_MEMORY_DB` for the worker. Register it persistently for the default agent / interactive
+sessions with `immortals memory register` (reversible via `immortals memory unregister`).
 
 **Known CLI limitation (R7, AS-022):** in headless `-p` mode the copilot CLI exposes MCP tools to
 the *default* agent but **not to custom `--agent` workers** — verified for both `--additional-mcp-config`
 and persistent registration (the server connects, but its tools aren't in a custom agent's toolset).
-Because AgentSuite workers are always custom agents, **worker-initiated** shared memory is currently
+Because Immortals workers are always custom agents, **worker-initiated** shared memory is currently
 blocked by the CLI. Today the orchestrator remains the central writer (every worker artifact + event
 is persisted to the shared store, so cross-run memory and audit are intact); worker-shared
 read/write will be delivered by the orchestrator acting as the **memory broker** (inject relevant

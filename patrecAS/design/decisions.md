@@ -2,7 +2,7 @@
 
 > Module-local decision log for `patrecAS` (alias *learnAS*). Anchors are `PAT-001…`, append-only:
 > stable anchors; when superseded, keep the anchor and change the title. These sit *under* the
-> top-level AgentSuite decisions — especially **[AS-027]** (controlling), **[AS-012]**, **[AS-006]**,
+> top-level Immortals decisions — especially **[AS-027]** (controlling), **[AS-012]**, **[AS-006]**,
 > **[AS-023]**, **[AS-024]**, **[AS-025]** — and never contradict them. Research grounding for each
 > decision is in `deep-dive.md`; the architecture is in `architecture.md`.
 
@@ -11,9 +11,9 @@
 ### [PAT-001] "RLHF-type" is reframed as preference-based adaptation of the controllable surface
 - **Status:** accepted (research-validated).
 - **Context:** the owner asked for an "RLHF-type learning model." Literal RLHF/DPO/PPO update the
-  weights of a model you own; AgentSuite invokes the Copilot planner as a black-box `copilot` process
+  weights of a model you own; Immortals invokes the Copilot planner as a black-box `copilot` process
   (Backend A) and owns no weights (`deep-dive.md` §1).
-- **Decision:** patrecAS performs **preference-based adaptation over the surface AgentSuite controls**
+- **Decision:** patrecAS performs **preference-based adaptation over the surface Immortals controls**
   — agent prompts/descriptions, routing, registry manifests, and the roster — **not** gradient RLHF on
   the LLM. The *reward-modeling concept* from RLHF is retained and reused (the learned scorer in
   PAT-004); the *weight-update mechanism* is deferred to PAT-009 behind a self-hosted-planner
@@ -53,7 +53,7 @@
 - **Status:** accepted (non-negotiable safety rail, from [AS-027]).
 - **Decision:** patrecAS **only emits proposals** (`adaptation_proposal/v1`). Adoption requires: an
   experimentAS A/B win on the reward proxy **and** no regression on an un-optimized guardrail metric →
-  human approval (orchestrator gate / AS-025) → git commit of the diff → `agentsuite agents install`.
+  human approval (orchestrator gate / AS-025) → git commit of the diff → `immortals agents install`.
   Every adaptation is a reviewable, reversible git diff; rollback is one revert.
 - **Rationale:** text/prompt optimizers reliably overfit metrics (Goodhart), drift, and can be
   hijacked by injected learned text (`deep-dive.md` §3.2). The gate + versioning + reversibility make
@@ -73,7 +73,7 @@
   prior and fallback. **Mandatory:** build the **offline replay / inverse-propensity estimator first**
   and require a predicted win on logged data *before* enabling any capped online exploration.
 - **Rationale:** routing is discrete-action, immediate-feedback, no long horizon — the textbook bandit
-  setting; LinUCB also gives an unbiased offline evaluator over logged data, and AgentSuite's event
+  setting; LinUCB also gives an unbiased offline evaluator over logged data, and Immortals's event
   log *is* such a log with replayable runs.
 - **Evidence:** LinUCB + offline policy evaluation [arXiv:1003.0146, *verified*]; bandit selection
   already used inside prompt optimization (APO) [arXiv:2305.03495, *verified*].
@@ -103,10 +103,10 @@
 - **Decision:** the induction pipeline = **GapDetector** (repeated low `Registry.route()` top scores /
   escalations) → **NeedClusterer** (embed unmet `need` strings via the Phase-6 `Embedder`, cosine
   cluster) → **AgentInductor** (draft `<name>AS.md` persona + schema-validated `registry/v1` manifest,
-  deduped against existing manifests) → **human approval** → **`agentsuite agents install`**. The new
+  deduped against existing manifests) → **human approval** → **`immortals agents install`**. The new
   agent becomes routable with **no code change** because routing is registry-driven [AS-004].
 - **Rationale:** the research shows automatic agent/role generation works (ADAS, AutoAgents) and the
-  AgentSuite registry design makes it unusually cheap and safe to add an agent.
+  Immortals registry design makes it unusually cheap and safe to add an agent.
 - **Evidence:** ADAS meta-agent invents transferable agents [arXiv:2408.08435, *verified*]; AutoAgents
   generates+coordinates roles with an observer/reflection step [arXiv:2309.17288, *verified*].
 - **Safeguards:** dedupe vs existing capabilities; an experimentAS evaluation that the new agent
@@ -122,7 +122,7 @@
   stays in the local SQLite DB (no third-party sharing; HashingEmbedder default avoids API-embedding
   egress); a `patrecAS reset`/opt-out drops the user model and reverts learned diffs; every adaptation
   decision is logged as an event and is `reconstruct`-able.
-- **Rationale:** behavioural/preference data is sensitive; the controls already exist in AgentSuite
+- **Rationale:** behavioural/preference data is sensitive; the controls already exist in Immortals
   (local-first [AS-007], append-only audit [AS-006], injection containment [AS-003]) and patrecAS
   inherits them plus reset/opt-out.
 - **Links:** [AS-006], [AS-007], [AS-003].
@@ -148,7 +148,7 @@
 ### [PAT-009] DPO/weight-level RLHF is research-only, contingent on a self-hosted planner
 - **Status:** proposed (deferred — Stage D).
 - **Decision:** true DPO/RLHF over a planner model is **not** built while the planner is a black-box
-  vendor LLM. It reopens only if AgentSuite adopts a **self-hosted/ownable planner** (Backend C
+  vendor LLM. It reopens only if Immortals adopts a **self-hosted/ownable planner** (Backend C
   direction). At that point the reward model already built for PAT-004 supplies the preference signal,
   and DPO (simpler/stabler than PPO) is the preferred recipe.
 - **Rationale:** keeps a credible long-term research path without blocking the feasible near-term
@@ -167,7 +167,7 @@
   writing adaptation rationales) live in a `patrecAS.md` persona with a `registry/v1` manifest so
   managerAS can route "learn my preferences / adapt the suite / we need a new kind of agent" tasks to
   it.
-- **Rationale:** mirrors AgentSuite's core split (determinism where it counts; LLM judgment confined to
+- **Rationale:** mirrors Immortals's core split (determinism where it counts; LLM judgment confined to
   a named agent) and makes patrecAS itself a first-class, routable suite member under the LOCKED
   `<name>AS.md` convention.
 - **Links:** [AS-001], [AS-024], `architecture.md` (Roles).

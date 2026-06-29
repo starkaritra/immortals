@@ -1,0 +1,24 @@
+{
+  "name": "immortals-pitch-video",
+  "version": "1.0.0",
+  "description": "Remotion rebuild of the Immortals demo-day pitch deck as a narrated ~5-minute MP4 (Edge TTS VO).",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "gen-audio": "node scripts/gen-audio.mjs",
+    "timings": "node scripts/gen-timings.mjs",
+    "studio": "remotion studio",
+    "render": "remotion render ImmortalsPitch out/immortals-pitch.mp4",
+    "still": "remotion still"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.484",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "remotion": "4.0.484"
+  },
+  "devDependencies": {
+    "@types/react": "19.0.0",
+    "typescript": "5.6.3"
+  }
+}

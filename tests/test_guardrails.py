@@ -6,11 +6,11 @@ import json
 
 import pytest
 
-from agentsuite.cli import main
-from agentsuite.contracts.models import Node, Plan
-from agentsuite.orchestrator import Guardrails, Orchestrator
-from agentsuite.registry import Registry
-from agentsuite.runners import MockRunner
+from immortals.cli import main
+from immortals.contracts.models import Node, Plan
+from immortals.orchestrator import Guardrails, Orchestrator
+from immortals.registry import Registry
+from immortals.runners import MockRunner
 
 
 @pytest.fixture
@@ -70,7 +70,7 @@ def test_token_budget_halts_run(registry):
 
 def test_wall_clock_budget_trips_in_state():
     # Direct, deterministic check of the state machine: elapsed beyond budget raises.
-    from agentsuite.orchestrator.guardrails import GuardrailBreach, GuardrailState
+    from immortals.orchestrator.guardrails import GuardrailBreach, GuardrailState
 
     state = GuardrailState(Guardrails(max_wall_clock_s=1.0))
     state.before_node("teachAS", elapsed_s=0.5)  # within budget
@@ -80,8 +80,8 @@ def test_wall_clock_budget_trips_in_state():
 
 
 def test_tokens_of_handles_missing_usage():
-    from agentsuite.contracts.models import Artifact
-    from agentsuite.orchestrator.guardrails import tokens_of
+    from immortals.contracts.models import Artifact
+    from immortals.orchestrator.guardrails import tokens_of
 
     bare = Artifact(id="a", produced_by="x", node_id="n", task_id="t", type="r", content={})
     assert tokens_of(bare) == 0

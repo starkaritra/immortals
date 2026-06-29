@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://immortals/contracts/registry.v1.json",
+  "title": "registry/v1",
+  "description": "Machine-readable capability manifest for one AS agent; managerAS routes by matching task needs to these.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "agent", "summary", "capabilities"],
+  "properties": {
+    "schema": { "const": "registry/v1" },
+    "agent": { "type": "string", "minLength": 1 },
+    "summary": { "type": "string", "minLength": 1 },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "consumes": { "type": "array", "items": { "type": "string" } },
+    "produces": { "type": "array", "items": { "type": "string" } },
+    "approval_default": { "enum": ["required", "none"], "default": "none" },
+    "cost_hint": { "enum": ["low", "medium", "high"], "default": "medium" },
+    "when_to_use": { "type": "string" }
+  }
+}

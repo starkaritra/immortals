@@ -1,10 +1,10 @@
-"""Tests for the AgentSuite CLI (the orchestrator seam managerAS calls)."""
+"""Tests for the Immortals CLI (the orchestrator seam managerAS calls)."""
 
 from __future__ import annotations
 
 import json
 
-from agentsuite.cli import main
+from immortals.cli import main
 
 
 def _plan_json(agent: str = "teachAS") -> str:
@@ -44,3 +44,24 @@ def test_run_with_events(capsys):
     out = json.loads(capsys.readouterr().out)
     assert rc == 0
     assert any(e["type"] == "run_completed" for e in out["events"])
+
+
+def test_run_streams_per_agent_progress_to_stderr(capsys):
+    """The 'deafening silence' fix: a default run narrates each agent's work on stderr, while
+    stdout stays clean machine-readable JSON."""
+    rc = main(["run", "--plan", _plan_json(), "--backend", "mock"])
+    cap = capsys.readouterr()
+    assert rc == 0
+    assert json.loads(cap.out)["status"] == "completed"   # stdout unaffected
+    assert "teachAS" in cap.err                            # the agent is named
+    assert "[ok]" in cap.err                               # its completion is reflected
+    assert "run complete" in cap.err
+    assert "\\u" not in cap.err                            # ASCII-safe (no raw unicode escapes)
+
+
+def test_run_quiet_suppresses_progress(capsys):
+    rc = main(["run", "--plan", _plan_json(), "--backend", "mock", "--quiet"])
+    cap = capsys.readouterr()
+    assert rc == 0
+    assert json.loads(cap.out)["status"] == "completed"
+    assert cap.err.strip() == ""                           # no progress stream

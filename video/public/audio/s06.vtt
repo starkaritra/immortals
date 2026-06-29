@@ -1,0 +1,48 @@
+1
+00:00:00,100 --> 00:00:01,725
+And that real run delivered.
+
+2
+00:00:01,675 --> 00:00:07,258
+We gave Immortals a genuine build — a weekly research digest: a Cloudflare backend plus a Chrome extension, end to end.
+
+3
+00:00:07,258 --> 00:00:09,958
+Four steps, three specialists, real agents.
+
+4
+00:00:09,958 --> 00:00:12,675
+It passed all eight of our pre-registered success criteria.
+
+5
+00:00:12,675 --> 00:00:16,175
+The code it shipped: seventy-eight of seventy-eight tests passing, type-clean.
+
+6
+00:00:16,175 --> 00:00:17,966
+But here is the moment that matters.
+
+7
+00:00:17,966 --> 00:00:25,033
+The critic agent — on its own — caught a critical flaw the first plan missed: summarizing one item at a time would blow a hard platform limit and abort the whole digest.
+
+8
+00:00:25,033 --> 00:00:26,783
+The coder fixed it with batching.
+
+9
+00:00:26,783 --> 00:00:29,400
+The team produced better architecture than the plan it was handed.
+
+10
+00:00:29,400 --> 00:00:33,875
+Honest caveat: the agents build and test headlessly — the final deploy is still a human click.
+
+11
+00:00:33,875 --> 00:00:35,866
+But that is not one yes-man chatbot.
+
+12
+00:00:35,866 --> 00:00:37,783
+That is a real, critical team.
+

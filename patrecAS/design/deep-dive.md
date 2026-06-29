@@ -1,9 +1,9 @@
 # patrecAS / learnAS — Research & Landscape Deep-Dive
 
-> **What this file is.** A grounded literature/landscape survey for the AgentSuite adaptive-learning
+> **What this file is.** A grounded literature/landscape survey for the Immortals adaptive-learning
 > module (`patrecAS`, alias *learnAS*), controlled by decision **[AS-027]** (and original scope
 > **[AS-012]**). Each topic ends with a **"What this means for patrecAS"** synthesis tied to the
-> *real* AgentSuite seams (the AS-006 event log, the Phase-6 derived memory, `Registry.route()`,
+> *real* Immortals seams (the AS-006 event log, the Phase-6 derived memory, `Registry.route()`,
 > `agents install`). The companion files are `architecture.md` (the design), `decisions.md` (ADRs
 > `PAT-001…`), and `plan.md` (the phased roadmap).
 >
@@ -22,18 +22,18 @@
 **The user asked for an "RLHF-type learning model." Taken literally that is infeasible here, and the
 deep dive confirms the README/[AS-027] reframing is the correct one.** True RLHF (Reinforcement
 Learning from Human Feedback) and its lighter cousin DPO (Direct Preference Optimization) both
-*update the weights of a language model you own*. AgentSuite does **not** own the planner model: every
+*update the weights of a language model you own*. Immortals does **not** own the planner model: every
 agent is a black-box `copilot` process (Backend A), invoked headlessly. You cannot run a policy
 gradient through a vendor LLM you only call by API. So "RLHF on the Copilot weights" is a non-starter
 until/unless a **self-hosted planner** is adopted (Backend C).
 
 **The feasible and well-supported reframing:** *preference-based adaptation over the surface
-AgentSuite actually controls* — the agent **prompts/descriptions**, the **routing**, the **registry
+Immortals actually controls* — the agent **prompts/descriptions**, the **routing**, the **registry
 manifests**, and the **roster** itself. This is not a downgrade; it is exactly where the modern
-literature has moved for black-box LLMs. Four mature research lines map cleanly onto AgentSuite's
+literature has moved for black-box LLMs. Four mature research lines map cleanly onto Immortals's
 existing seams:
 
-| Adaptation lever (what patrecAS can change) | Research line that validates it | AgentSuite seam it writes |
+| Adaptation lever (what patrecAS can change) | Research line that validates it | Immortals seam it writes |
 |---|---|---|
 | **What the manager knows about the user** (in-context personalization) | Retrieval/memory-based personalization; *Generative Agents* memory stream | Phase-6 facts + vector index (AS-023) |
 | **What each agent's prompt/description says** | Prompt optimization: DSPy, OPRO, APO/ProTeGi, TextGrad, GEPA | persona `.md` + `registry/v1` `when_to_use`/`summary` |
@@ -75,7 +75,7 @@ controllable surface, not the LLM.**
   written "constitution," cutting labeling cost — but again the payoff is a fine-tuned model
   [Constitutional AI, Bai et al. 2022, arXiv:2212.08073, *verified*].
 
-**Implication.** All of these are off the table for the Copilot planner, which AgentSuite calls as an
+**Implication.** All of these are off the table for the Copilot planner, which Immortals calls as an
 opaque process (`copilot --agent … -p …`, Backend A, architecture §AgentRunner). There is no weight
 access, no gradient, no place to put a reward signal *inside* the model.
 
@@ -112,9 +112,9 @@ Stage C **without any LLM fine-tuning**. Only Stage D (a self-hosted planner) re
 
 ---
 
-## 2. Reward signal design from AgentSuite's real telemetry
+## 2. Reward signal design from Immortals's real telemetry
 
-**Bottom line: AgentSuite already emits a rich implicit-feedback stream in the AS-006 event log; treat
+**Bottom line: Immortals already emits a rich implicit-feedback stream in the AS-006 event log; treat
 it as a *noisy, biased* reward proxy, fuse it with explicit AS-025 thumbs, and never optimize it
 without a guardrail metric.**
 
@@ -164,7 +164,7 @@ and for training a reward scorer (Stage C) even if no LLM fine-tuning happens.
 ## 3. Self-improving / self-modifying agents & prompt optimization
 
 **Bottom line: text-space optimization of prompts/descriptions is real, cheap, and effective — and
-it is the natural fit for AgentSuite's `.md` personas and `when_to_use` manifest text. But every
+it is the natural fit for Immortals's `.md` personas and `when_to_use` manifest text. But every
 known method is fragile under reward hacking, drift, and prompt injection, so patrecAS must *propose*
 edits and gate them behind A/B + human approval.**
 
@@ -206,7 +206,7 @@ edits and gate them behind A/B + human approval.**
 - **Prompt injection via learned data.** If patrecAS learns from artifacts/feedback that an upstream
   agent or a malicious user produced, that text can carry instructions that hijack a later prompt —
   indirect prompt injection is a demonstrated real-world attack [Greshake et al. 2023,
-  arXiv:2302.12173, *verified*]. AgentSuite already treats artifacts as **untrusted data** mediated by
+  arXiv:2302.12173, *verified*]. Immortals already treats artifacts as **untrusted data** mediated by
   the orchestrator [AS-003]; patrecAS must inherit that — learned signals are data, never instructions.
 - **Self-modification instability.** Fully self-rewriting agents (Gödel-machine lineage) are powerful
   in principle but unstable in practice; the recent **Darwin Gödel Machine** evolves self-improving
@@ -215,7 +215,7 @@ edits and gate them behind A/B + human approval.**
   human gate**, not unconstrained self-rewrite.
 
 > **What this means for patrecAS.** Adopt the *prompts-are-parameters* framing (DSPy/OPRO/GEPA) for
-> Stage B, but constrained to AgentSuite's posture: (1) the **proposer** generates a candidate diff to
+> Stage B, but constrained to Immortals's posture: (1) the **proposer** generates a candidate diff to
 > a persona `.md` or a manifest `when_to_use`/`summary`; (2) the diff is **never auto-applied**; (3)
 > experimentAS A/Bs it; (4) a human approves; (5) it lands as a **git-versioned, reversible** change
 > via `agents install`. GEPA/Self-Refine's reflective loop is the *generator*; the A/B + approval gate
@@ -234,7 +234,7 @@ uncertainty — but only adopt it after Stages A/E/B, and evaluate it *offline f
 A **contextual bandit** chooses one action (agent/template) given a context (the task/user features),
 observes a single reward (was the plan accepted? re-run?), and balances **exploration vs
 exploitation**. It is the right tool when actions are *discrete*, feedback is *immediate-ish*, and
-there is no long horizon of state transitions to credit — exactly AgentSuite routing. The canonical
+there is no long horizon of state transitions to credit — exactly Immortals routing. The canonical
 result is **LinUCB**: a contextual-bandit approach to personalized recommendation that beat
 context-free methods and, crucially, introduced an **unbiased offline evaluation** method using logged
 data [Li et al. 2010, arXiv:1003.0146, *verified*]. **Thompson sampling** is the Bayesian alternative
@@ -245,7 +245,7 @@ data [Li et al. 2010, arXiv:1003.0146, *verified*]. **Thompson sampling** is the
 
 The same Li et al. work shows you can **evaluate a new routing policy on *logged* data** (replay /
 inverse-propensity weighting) without deploying it live [arXiv:1003.0146, *verified*]. This is gold
-for AgentSuite: the **event log is exactly such a log**, and runs are already **replayable** (the log
+for Immortals: the **event log is exactly such a log**, and runs are already **replayable** (the log
 is the source of truth; `reconstruct`/`--resume` exist). patrecAS can therefore *counterfactually*
 estimate "would this routing tweak have been accepted more often?" before risking a live change.
 
@@ -266,7 +266,7 @@ remains the safe default and the cold-start prior.
 
 ## 5. New-agent induction (roster growth when there is a capability gap)
 
-**Bottom line: AgentSuite's "a new manifest is routable with no code change" design ([AS-004]) makes
+**Bottom line: Immortals's "a new manifest is routable with no code change" design ([AS-004]) makes
 roster growth unusually tractable; the research (ADAS, AutoAgents, Voyager) shows automatic
 agent/role generation works, but safety demands human approval + the existing `agents install`
 path.**
@@ -276,7 +276,7 @@ path.**
 - **ADAS (Automated Design of Agentic Systems)** — a *meta-agent* programs ever-better agents in code,
   growing an **archive** of discovered designs; invented agents outperform hand-designed ones and even
   transfer across domains/models [ADAS, Hu et al. 2024, arXiv:2408.08435, *verified*]. The paper
-  explicitly flags "*provided we develop it safely*" — matching AgentSuite's human-gated posture.
+  explicitly flags "*provided we develop it safely*" — matching Immortals's human-gated posture.
 - **AutoAgents** — *adaptively generates and coordinates* specialized agents (a "role" per task) with
   an **observer** role that reflects on the generated plan/agents and improves them [AutoAgents, Chen
   et al. 2023, arXiv:2309.17288, *verified*]. This is the closest analogue to "induct a new `<name>AS`."
@@ -299,7 +299,7 @@ path.**
    existing `AgentManifest.from_dict` validator.
 4. **Human approval gate.** Surfaced via AS-025 / the orchestrator approval gate — *propose-not-apply*.
 5. **Install reversibly.** On approval, write the files into repo `agents/` + `registry/`, commit
-   (git-versioned, reversible), and run `agentsuite agents install`. Because routing is registry-driven
+   (git-versioned, reversible), and run `immortals agents install`. Because routing is registry-driven
    [AS-004], the new agent is immediately routable **with no code change**.
 
 ### 5.3 The hazards
@@ -320,12 +320,12 @@ and never bypass the human gate.
 ## 6. Memory / retrieval-based personalization (Stage A, the MVP)
 
 **Bottom line: the cheapest, safest, first thing to build is a *retrieved user/team model* — and
-AgentSuite already has the entire substrate for it from Phase 6.**
+Immortals already has the entire substrate for it from Phase 6.**
 
 The *Generative Agents* line shows a **memory stream** (observations stored, then **retrieved by
 relevance/recency/importance** and synthesized into higher-level reflections) produces believable,
 personalized long-horizon behaviour with **no fine-tuning** [Generative Agents, Park et al. 2023,
-arXiv:2304.03442, *verified*]. That architecture is essentially what AgentSuite's Phase-6 derived
+arXiv:2304.03442, *verified*]. That architecture is essentially what Immortals's Phase-6 derived
 memory already is: append-only events → **agent-namespaced facts** (with `source` provenance +
 `supersedes`) → a **knowledge graph** + a **vector index** with semantic `search()` [AS-023,
 `derived.py`].
@@ -341,11 +341,11 @@ memory already is: append-only events → **agent-namespaced facts** (with `sour
 
 ## 7. Privacy, safety & governance
 
-**Bottom line: behavioural learning is privacy- and safety-sensitive; AgentSuite's existing posture
+**Bottom line: behavioural learning is privacy- and safety-sensitive; Immortals's existing posture
 (local-first, append-only audit, untrusted-data containment, approval gates) already supplies most of
 the controls, and patrecAS must inherit all of them plus add reset/opt-out.**
 
-| Control | Mechanism in AgentSuite | patrecAS obligation |
+| Control | Mechanism in Immortals | patrecAS obligation |
 |---|---|---|
 | **Local-first, no 3P sharing** | single local SQLite, no egress [AS-007] | behavioural data never leaves the machine; HashingEmbedder default avoids API-embedding egress |
 | **Propose-not-apply** | orchestrator approval gate [AS-005] | every prompt/manifest/roster diff is a *proposal* |

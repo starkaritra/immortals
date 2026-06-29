@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Immortals — Microsoft Demo-Day Pitch</title>
+<style>
+  /* ===== Immortals brand palette (matched to prototype/jarvis-bubble + dashboard) ===== */
+  :root{
+    --bg:#0b0d12; --desk1:#0f1320; --panel:#171a21; --panel2:#1e222b;
+    --line:#2a2f3a; --line2:#39414f; --fg:#e9ecf2; --muted:#9aa3b2; --dim:#5b6577;
+    --accent:#6ea8fe; --accent2:#8b7cff; --ok:#4ec9a8; --warn:#e0b341; --fail:#f06d6d;
+    --chip:#283041;
+    --glow:0 0 0 4px rgba(110,168,254,.16), 0 18px 50px rgba(0,0,0,.55);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
+    font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+    overflow:hidden;-webkit-font-smoothing:antialiased}
+  /* ===== deck framing ===== */
+  #deck{position:fixed;inset:0;
+    background:radial-gradient(1300px 800px at 72% -12%, #18203a 0%, var(--desk1) 46%, var(--bg) 100%);}
+  .slide{position:absolute;inset:0;display:none;flex-direction:column;z-index:1;
+    padding:5.0vh 6.2vw 8.0vh;animation:fade .45s ease both}
+  .slide.active{display:flex}
+  @keyframes fade{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  /* ===== typography ===== */
+  .kicker{font-size:1.55vh;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);
+    font-weight:700;margin-bottom:1.6vh;display:flex;align-items:center;gap:.7em}
+  .kicker .num{color:var(--dim);font-weight:600}
+  h1{font-size:5.1vh;line-height:1.08;margin:0 0 1.4vh;font-weight:800;letter-spacing:-.01em;max-width:20ch}
+  h1.big{font-size:6.0vh;max-width:18ch}
+  .lede{font-size:2.55vh;line-height:1.5;color:var(--fg);max-width:46ch;margin:0 0 2.2vh}
+  .lede .mut{color:var(--muted)}
+  .em{color:var(--accent)} .em2{color:var(--accent2)} .emok{color:var(--ok)}
+  b,strong{font-weight:700}
+  /* ===== light dek (the slide's one-line thesis, under the headline) ===== */
+  .dek{display:flex;align-items:center;gap:.7em;font-size:1.95vh;line-height:1.4;font-weight:400;
+    color:rgba(233,236,242,.84);max-width:68ch;margin:.1vh 0 1.7vh}
+  .dek::before{content:"";align-self:stretch;width:3px;min-height:1.15em;border-radius:2px;flex:none;
+    background:linear-gradient(180deg,var(--accent),var(--accent2))}
+  .dek b,.dek strong{color:var(--fg);font-weight:600}
+
+  /* slide 6: vertically centre the body block (below the kicker) */
+  .s6body{margin:auto 0;display:flex;flex-direction:column;min-height:0}
+  /* ===== bullet list ===== */
+  ul.pts{list-style:none;padding:0;margin:.4vh 0;max-width:50ch}
+  ul.pts li{position:relative;padding:.9vh 0 .9vh 2.2em;font-size:2.3vh;line-height:1.4;color:var(--fg)}
+  ul.pts li::before{content:"";position:absolute;left:0;top:1.5vh;width:.7em;height:.7em;border-radius:2px;
+    background:var(--fail);transform:rotate(45deg)}
+  ul.pts li.good::before{background:var(--ok)}
+  ul.pts li .mut{color:var(--muted)}
+  /* ===== layout helpers ===== */
+  .row{display:flex;gap:3vw;align-items:center}
+  .grow{flex:1}
+  .col{display:flex;flex-direction:column;gap:1.4vh}
+  /* ===== idea cards (slide 1) ===== */
+  .ideas{display:flex;gap:1.2vw;flex-wrap:wrap;max-width:42vw}
+  .idea{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:1.6vh 1.4vw;min-width:11vw;opacity:.45;filter:grayscale(.4)}
+  .idea .t{font-weight:700;font-size:1.9vh;margin-bottom:.5vh}
+  .idea .s{font-size:1.5vh;color:var(--dim)}
+  .idea .stuck{margin-top:1vh;font-size:1.35vh;color:var(--warn);letter-spacing:.04em;display:flex;align-items:center;gap:.35em}
+  .idea .stuck svg{width:1.4vh;height:1.4vh;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  /* ===== chatbot vs team (slide 2) ===== */
+  .vsbox{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:2.4vh 1.8vw;
+    width:30vw;box-shadow:var(--glow)}
+  .vsbox .bubble{background:var(--panel2);border:1px solid var(--line);border-radius:14px 14px 14px 4px;
+    padding:1.4vh 1.2vw;color:var(--muted);font-size:1.8vh;line-height:1.4}
+  .vsbox .lbl{font-size:1.4vh;color:var(--dim);text-transform:uppercase;letter-spacing:.16em;margin-bottom:1.2vh}
+  .vsbox .miss{margin-top:1.6vh;display:flex;flex-direction:column;gap:.7vh}
+  .vsbox .miss span{font-size:1.7vh;color:var(--fail)}
+  /* ===== hub diagram (slide 3) ===== */
+  .hub{display:flex;align-items:center;gap:1.6vw;flex-wrap:nowrap;max-width:92vw}
+  .node{border-radius:12px;padding:1.3vh 1.1vw;font-weight:700;font-size:1.9vh;text-align:center;
+    border:1px solid var(--line);background:var(--panel);white-space:nowrap}
+  .node.you{background:linear-gradient(135deg,#2a3550,#1c2336);border-color:var(--line2)}
+  .node.mgr{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#06101f;border:none;
+    box-shadow:var(--glow);font-size:2.1vh;padding:1.6vh 1.4vw}
+  .spec{display:grid;grid-template-columns:repeat(2,auto);gap:.8vh 1vw}
+  .spec .node{font-size:1.65vh;padding:.9vh .9vw;line-height:1.2}
+  .spec .node .role{display:block;font-weight:400;font-size:1.12vh;color:var(--muted);margin-top:.2vh;letter-spacing:.2px}
+  .arrow{color:var(--accent);font-size:2.6vh;font-weight:800}
+  .arrow.sm{font-size:2vh}
+  /* ===== shared diagram system (slides 4·5·7): centered band · icon nodes · connectors ===== */
+  .centerband{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.9vh;width:100%}
+  h1.wide{max-width:38ch}
+  .flow{display:flex;align-items:flex-start;justify-content:center;width:100%;max-width:93vw}
+  .fstage{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center;gap:.9vh;padding:0 .55vw}
+  .fstage .ft{font-weight:700;font-size:2.0vh;line-height:1.16}
+  .fstage .fp{font-size:1.35vh;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--accent)}
+  .fstage .fd{font-size:1.5vh;color:var(--muted);line-height:1.36;max-width:19ch}
+  .fstage .tags{justify-content:center;margin-top:.2vh}
+  .fstage.now .fp{color:var(--ok)}
+  .fstage.star .fp{color:var(--accent2)}
+  .fstage.star .ft{color:#fff}
+  /* icon node — solid colored circle (the slide-5 status-circle template), crisp inline-SVG glyph */
+  .ico{width:5.4vh;height:5.4vh;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:2.4vh;box-shadow:0 6px 18px rgba(0,0,0,.4)}
+  .ico svg{width:2.7vh;height:2.7vh;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .ico.blue{background:var(--accent);color:#06101f}
+  .ico.green{background:var(--ok);color:#04140e}
+  .ico.amber{background:var(--warn);color:#1a1205}
+  .ico.indigo{background:linear-gradient(135deg,var(--accent2),#6f5fe0);color:#0a0716}
+  .fstage.star .ico{box-shadow:0 0 0 4px rgba(139,124,255,.22),0 6px 18px rgba(0,0,0,.45)}
+  /* connector — optional label + line·chevron·line track, vertically centred on the icon row */
+  .fconn{flex:none;align-self:flex-start;height:5.4vh;width:5.2vw;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:.4vh;color:var(--accent)}
+  .fconn .flbl{font-size:1.15vh;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .fconn .ftrk{display:flex;align-items:center;width:100%}
+  .fconn .ftrk i{flex:1;height:2px;background:currentColor;opacity:.5;display:block}
+  .fconn .ftrk svg{flex:none;width:2vh;height:2vh;margin:0 -.3vh;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+  .tags{display:flex;gap:.6vw;flex-wrap:wrap;margin-top:.6vh}
+  .tag{background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:.35vh .8vw;
+    font-size:1.4vh;color:var(--fg)}
+  .tag.ok{color:var(--ok);border-color:rgba(78,201,168,.4);background:rgba(78,201,168,.10)}
+  /* ===== loop (slide 5) — uses the shared diagram system; personas + inline mini-icons ===== */
+  .personas{display:flex;gap:.8vw;justify-content:center;flex-wrap:wrap;align-items:center}
+  .pchip{background:var(--chip);border:1px solid var(--line2);border-radius:999px;padding:.5vh 1.1vw;
+    font-size:1.6vh;font-weight:600;display:inline-flex;align-items:center}
+  .pchip svg{width:1.8vh;height:1.8vh;margin-right:.45em;color:var(--accent);
+    fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .minib{width:1.7vh;height:1.7vh;vertical-align:-.25vh;margin:0 .15em;color:var(--warn);
+    fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  /* ===== stat callouts (slide 6) ===== */
+  .stats{display:flex;gap:1.2vw;flex-wrap:wrap;margin:.6vh 0 1.8vh}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:1.5vh 1.4vw;
+    min-width:9vw;text-align:center}
+  .stat .v{font-size:3.6vh;font-weight:800;line-height:1}
+  .stat .v.ok{color:var(--ok)} .stat .v.bl{color:var(--accent)}
+  .stat .k{font-size:1.4vh;color:var(--muted);margin-top:.7vh}
+  .money{display:flex;align-items:center;gap:1vw;background:var(--panel);border:1px solid var(--line);
+    border-radius:14px;padding:1.6vh 1.4vw;max-width:78vw}
+  .ba{flex:1;display:flex;flex-direction:column;gap:.5vh}
+  .ba .lbl{font-size:1.35vh;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+  .ba .txt{font-size:1.7vh;line-height:1.35}
+  .ba.bad{border-left:3px solid var(--fail);padding-left:1vw}
+  .ba.fix{border-left:3px solid var(--ok);padding-left:1vw}
+  .ba .bad-t{color:var(--fail);font-weight:700}
+  .ba .ok-t{color:var(--ok);font-weight:700}
+  .caveat{font-size:1.55vh;color:var(--muted);margin-top:1.2vh;display:flex;gap:.6em;align-items:center}
+  .caveat svg{width:2vh;height:2vh;flex:none;fill:none;stroke:var(--warn);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  /* ===== roadmap timeline (slide 7) — uses the shared diagram system ===== */
+  .flow.timeline .fconn .ftrk i{opacity:.55}
+  /* ===== close (slide 8) ===== */
+  .close{align-items:center;justify-content:center;text-align:center}
+  .close h1{max-width:24ch;font-size:5.6vh}
+  .close .mission{font-size:2.1vh;color:var(--muted);max-width:50ch;margin:1.5vh auto 2.5vh;line-height:1.5}
+  .close .cta{font-size:3.0vh;font-weight:800;background:linear-gradient(90deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .close .mark{margin-top:3vh;font-size:2.4vh;font-weight:800;letter-spacing:.04em}
+
+  /* ===================== PASS-3 VISUAL SYSTEM ===================== */
+  @keyframes slide-grad{to{background-position:200% 0}}
+
+  /* ambient node-graph backdrop (title/section slides) */
+  #nodegraph{position:absolute;inset:0;z-index:0;width:100%;height:100%;pointer-events:none;
+    opacity:0;transition:opacity .8s ease}
+  #nodegraph.on{opacity:1}
+
+  /* shared frosted-glass surface */
+  .glass,.stat,.money{
+    -webkit-backdrop-filter:blur(9px) saturate(1.15);backdrop-filter:blur(9px) saturate(1.15)}
+  .stat{background:rgba(23,26,33,.55) !important;border:1px solid rgba(255,255,255,.08) !important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 14px 34px rgba(0,0,0,.4)}
+  .money{background:rgba(23,26,33,.5) !important;border:1px solid rgba(255,255,255,.08) !important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 14px 34px rgba(0,0,0,.4)}
+
+  /* persistent ⚔ orb companion (top-right) */
+  #orb{position:fixed;top:2.4vh;right:2vw;z-index:36;width:5.2vh;height:5.2vh;pointer-events:none}
+  #orb .core{display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;
+    font-size:2.4vh;color:#06101f;font-weight:800;
+    background:radial-gradient(circle at 35% 30%, #9cc1ff 0%, var(--accent) 42%, var(--accent2) 100%);
+    box-shadow:0 0 0 4px rgba(110,168,254,.14),0 10px 30px rgba(0,0,0,.5);
+    animation:breathe 3.6s ease-in-out infinite}
+  #orb.pulse .core{animation:breathe 3.6s ease-in-out infinite,orbpulse .75s ease-out}
+  @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+  @keyframes orbpulse{0%{box-shadow:0 0 0 0 rgba(110,168,254,.5),0 10px 30px rgba(0,0,0,.5)}
+    100%{box-shadow:0 0 0 16px rgba(110,168,254,0),0 10px 30px rgba(0,0,0,.5)}}
+
+  /* DAG spine continuity rail (one node per slide, glowing dot advances) */
+  #spine{position:fixed;left:6.2vw;right:6.2vw;bottom:6.0vh;height:14px;z-index:18;pointer-events:none}
+  #spine .srail{position:absolute;top:50%;left:0;right:0;height:2px;transform:translateY(-50%);
+    background:linear-gradient(90deg,rgba(110,168,254,.22),rgba(139,124,255,.22))}
+  #spine .snodes{position:absolute;inset:0}
+  #spine .sn{position:absolute;top:50%;width:7px;height:7px;border-radius:50%;
+    transform:translate(-50%,-50%);background:#39414f;transition:background .5s ease}
+  #spine .sn.done{background:var(--accent)}
+  #spine .sdot{position:absolute;top:50%;left:0;width:13px;height:13px;border-radius:50%;
+    transform:translate(-50%,-50%);
+    background:radial-gradient(circle at 40% 35%,#bcd4ff,var(--accent) 55%,var(--accent2));
+    box-shadow:0 0 12px 3px rgba(110,168,254,.6);
+    transition:left .6s cubic-bezier(.45,.05,.2,1)}
+
+  /* control legend (graph-legend, bottom-right, above the counter) */
+  #legend{position:fixed;right:2vw;bottom:8.4vh;z-index:22;display:flex;flex-direction:column;gap:.5vh;
+    padding:1vh 1vw;border-radius:10px;font-size:1.2vh;
+    background:rgba(14,17,24,.55);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+    border:1px solid rgba(255,255,255,.07);box-shadow:0 10px 28px rgba(0,0,0,.4);
+    opacity:.32;transition:opacity .4s ease}
+  #legend.show{opacity:.92}
+  #legend .lg-row{display:flex;align-items:center;gap:.6em;color:var(--muted);line-height:1.2}
+  #legend .lg-row kbd{background:var(--chip);border:1px solid var(--line);border-radius:4px;
+    min-width:1.5em;text-align:center;padding:.1em .35em;font-family:inherit;color:var(--fg);font-size:1.1vh}
+
+  /* live event-log terminal (DEMO slide) */
+  #term{width:min(56vw,760px);margin-top:.6vh;border-radius:12px;overflow:hidden;
+    background:rgba(12,15,22,.62) !important;border:1px solid rgba(255,255,255,.08);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 16px 38px rgba(0,0,0,.45);
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  #term .tbar{height:3vh;display:flex;align-items:center;gap:.5em;padding:0 1vw;
+    background:rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.06)}
+  #term .tbar i{width:.95vh;height:.95vh;border-radius:50%;display:block}
+  #term .tbody{padding:1.2vh 1.2vw;font-size:1.5vh;line-height:1.55;min-height:22vh}
+  #term .tl{opacity:0;transform:translateY(4px);white-space:pre;
+    transition:opacity .25s ease,transform .25s ease}
+  #term .tl.show{opacity:1;transform:none}
+  #term .ok{color:var(--ok)} #term .ask{color:var(--warn)} #term .arrow{color:var(--dim);font-size:1em;font-weight:400}
+  #term .cmd{color:var(--accent)} #term .ag{color:var(--accent2);font-weight:600}
+  #term .cursor{display:inline-block;width:.55em;height:1.05em;vertical-align:-.18em;
+    background:var(--accent);margin-left:.15em;animation:blink 1s step-end infinite}
+  @keyframes blink{50%{opacity:0}}
+
+  /* reduced-motion: quiet the ambient layer, keep the slide transition */
+  @media (prefers-reduced-motion: reduce){
+    #nodegraph{opacity:0 !important}
+    #orb .core,#bar{animation:none !important}
+    #spine .sdot{transition:none !important}
+    #term .tl{transition:none !important}
+  }
+  /* ================================================================ */
+  /* ===== chrome: footer, progress, notes ===== */
+  .footer{position:fixed;left:0;right:0;bottom:0;height:5.2vh;display:flex;align-items:center;
+    justify-content:space-between;padding:0 2.4vw;font-size:1.45vh;color:var(--dim);
+    border-top:1px solid var(--line);background:rgba(11,13,18,.72);backdrop-filter:blur(6px);z-index:20}
+  .footer .brand{font-weight:800;color:var(--fg);letter-spacing:.03em}
+  .footer .brand .sw{color:var(--accent)}
+  .footer .mid{color:var(--dim)}
+  #bar{position:fixed;top:0;left:0;height:3px;
+    background:linear-gradient(90deg,var(--accent),var(--accent2),var(--accent));
+    background-size:200% 100%;animation:slide-grad 6s linear infinite;
+    z-index:30;transition:width .35s ease}
+  /* speaker-notes drawer */
+  #notes{position:fixed;right:0;top:0;bottom:0;width:34vw;max-width:520px;background:#0e1118;
+    border-left:1px solid var(--line2);box-shadow:-12px 0 40px rgba(0,0,0,.55);
+    transform:translateX(102%);transition:transform .3s ease;z-index:40;display:flex;flex-direction:column}
+  #notes.open{transform:none}
+  #notes header{padding:2vh 1.6vw;border-bottom:1px solid var(--line);display:flex;align-items:center;
+    justify-content:space-between}
+  #notes header b{font-size:1.8vh}
+  #notes header span{font-size:1.4vh;color:var(--dim)}
+  #notesBody{padding:2vh 1.6vw;overflow:auto;font-size:1.6vh;line-height:1.5;color:var(--fg)}
+  #notesBody .src{color:var(--muted);font-size:1.45vh}
+  #notesBody h5{margin:0 0 .8vh;color:var(--accent);font-size:1.5vh;letter-spacing:.1em;text-transform:uppercase}
+  #notesBody .time{display:inline-block;background:var(--chip);border-radius:6px;padding:.2em .6em;
+    font-size:1.35vh;color:var(--accent);margin-bottom:1.2vh}
+  /* fragments */
+  .frag{opacity:.0;transition:opacity .35s ease, transform .35s ease;transform:translateY(8px)}
+  .frag.show{opacity:1;transform:none}
+</style>
+</head>
+<body>
+<div id="bar"></div>
+<div id="deck">
+  <canvas id="nodegraph" aria-hidden="true"></canvas>
+
+  <!-- ============ SLIDE 1 — PROBLEM (hook; mirrors script opening beat) ============ -->
+  <section class="slide" data-time="00:00 – 00:33"
+    data-notes="<h5>Problem · the hook</h5>
+    Open on the universal pain — everyone in the room has a backlog of unshipped ideas. The bottleneck is not idea quality; it is that shipping one means becoming researcher + critic + engineer + PM, all yourself. Land this before naming the product.
+    <p class='src'><b>Source:</b> narrative framing of the delegation problem — <code>design/handoff.md</code> AS-029 (the &lsquo;delegate a task, get a finished outcome&rsquo; north star). No external statistics used (rhetorical hook, not a stat).</p>">
+    <div class="kicker"><span class="sw">⚔</span> The problem <span class="num">· 01</span></div>
+    <h1 class="big">Your best ideas are<br>stuck in your head.</h1>
+    <div class="dek">The bottleneck isn't your ideas — it's everything it takes to ship one.</div>
+    <div class="row grow">
+      <p class="lede grow">A research dive you keep postponing. A tool you'd build with a free
+        week. A paper, a prototype, a plan. <span class="mut">They wait — because <em>doing</em>
+        one means being a researcher, a critic, an engineer, and a project manager, all at once,
+        all yourself.</span></p>
+      <div class="ideas">
+        <div class="idea"><div class="t">That research dive</div><div class="s">"someday…"</div><div class="stuck"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>waiting</div></div>
+        <div class="idea"><div class="t">The tool you'd build</div><div class="s">"if I had a week"</div><div class="stuck"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>waiting</div></div>
+        <div class="idea"><div class="t">The paper</div><div class="s">"half-drafted"</div><div class="stuck"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>waiting</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 2 — AGGRAVATE ============ -->
+  <section class="slide" data-time="00:33 – 00:59"
+    data-notes="<h5>Aggravate · the tools don't help</h5>
+    Name why today's AI doesn't solve it: a single generalist hands you text and leaves you to decompose, check, fix, and stitch — with no plan and no memory. This sets up Immortals as the opposite. Keep it crisp; don't bash competitors, just describe the gap.
+    <p class='src'><b>Source:</b> contrast drawn from <code>README.md</code> (&lsquo;you talk to one manager; a whole team does the work&rsquo; vs a single chatbot) and <code>design/handoff.md</code> AS-029 (tangible outcomes, not chat).</p>">
+    <div class="kicker"><span class="sw">⚔</span> Why it's still hard <span class="num">· 02</span></div>
+    <h1>AI gave you a chatbot,<br>not a team.</h1>
+    <div class="dek">One generalist with no plan and no memory isn't a team — it's another tab to manage.</div>
+    <div class="row grow">
+      <div class="vsbox">
+        <div class="lbl">Today: one generalist</div>
+        <div class="bubble">"Here's a wall of text. Good luck — let me know if you need anything else."</div>
+        <div class="miss">
+          <span>✗ You still break the work down</span>
+          <span>✗ You still check &amp; fix it</span>
+          <span>✗ You still stitch it together</span>
+          <span>✗ No plan · no memory of an hour ago</span>
+        </div>
+      </div>
+      <ul class="pts grow">
+        <li>One chatbot. <span class="mut">One generalist doing every role badly.</span></li>
+        <li>No plan. <span class="mut">You're the project manager by default.</span></li>
+        <li>No memory. <span class="mut">It forgets what it did an hour ago.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 3 — SOLUTION ============ -->
+  <section class="slide" data-time="00:59 – 01:35"
+    data-notes="<h5>Solution · what Immortals is</h5>
+    The reveal. Define the brand line here: <b>&lsquo;an enterprise team you delegate to.&rsquo;</b> You hand one manager a plain-English goal; it writes a real plan, picks specialists, runs them. Plain text in → finished result out. Gesture across the hub diagram as you name the specialists.
+    <p class='src'><b>Source:</b> <code>README.md</code> (Alex Ferguson = the single agent you talk to; the AS specialist suite; plain-text-in → finished-result-out) and <code>design/handoff.md</code> AS-029 north star (&lsquo;enterprise-grade expert team you delegate to&rsquo;).</p>">
+    <div class="kicker"><span class="sw">⚔</span> The solution <span class="num">· 03</span></div>
+    <h1>Immortals: <span class="em">an enterprise<br>team you delegate to.</span></h1>
+    <div class="dek">You talk to one manager; a whole expert team does the work behind it — and you get back a finished result.</div>
+    <p class="lede">Hand one manager your goal in plain English — it <span class="em2">brings your
+      ideas to life</span>: writes a real plan, picks the right specialists, and runs them for you.</p>
+    <div class="hub grow">
+      <div class="node you">You<br><span style="font-weight:400;font-size:1.4vh;color:var(--muted)">plain English</span></div>
+      <div class="arrow">→</div>
+      <div class="node mgr">Alex Ferguson<br><span style="font-weight:400;font-size:1.4vh">the manager · plan · route · synthesize</span></div>
+      <div class="arrow">→</div>
+      <div class="spec">
+        <div class="node">Humboldt<span class="role">researcher</span></div><div class="node">Socrates<span class="role">critic</span></div>
+        <div class="node">Linus<span class="role">coder</span></div><div class="node">Curie<span class="role">experimentalist</span></div>
+        <div class="node">Feynman<span class="role">teacher</span></div><div class="node">+ Darwin · Edison · Sagan<span class="role">author · inventor · orator</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 4 — HOW IT WORKS (architecture / DAG) ============ -->
+  <section class="slide" data-time="01:35 – 02:30"
+    data-notes="<h5>How it works · the technical core, simply</h5>
+    Walk the pipeline left→right. Keep the real terms but give the one-line plain meaning: typed plan = a flowchart (DAG) with order baked in; deterministic orchestrator = runs it, routes each step, validates every hand-off against a contract; guardrails cap time/cost; approval gates risky steps; the event log makes the whole run auditable and replayable. The punchline: determinism where it counts — agents are creative, orchestration is auditable code.
+    <p class='src'><b>Source:</b> <code>README.md</code> &lsquo;Architecture at a glance&rsquo; + Command reference (run guardrails, --approve, replay); contract schemas <code>immortals/contracts/schemas/</code> (<code>plan/v1, artifact/v1, registry/v1, event/v1</code>); <code>design/handoff.md</code> AS-029 (&lsquo;deterministic orchestration; non-determinism confined to manager/specialists&rsquo;).</p>">
+    <div class="kicker"><span class="sw">⚔</span> How it works <span class="num">· 04</span></div>
+    <h1 class="wide">Plan → orchestrate → verify,<br><span class="em">deterministically.</span></h1>
+    <div class="dek">Determinism where it counts: the agents stay creative; the coordination is auditable code.</div>
+    <div class="centerband">
+      <div class="flow">
+        <div class="fstage">
+          <div class="ico blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.1"/><circle cx="6" cy="19" r="2.1"/><circle cx="18" cy="19" r="2.1"/><path d="M10.8 6.6 7.2 17.4M13.2 6.6 16.8 17.4"/></svg></div>
+          <div class="ft">Typed plan</div>
+          <div class="fd">Alex Ferguson <span class="mut">(the manager)</span> turns your goal into a <b>DAG</b> — a flowchart of tasks with the order built in.</div>
+          <div class="tags"><span class="tag">plan/v1</span></div>
+        </div>
+        <div class="fconn"><span class="flbl">plan</span><span class="ftrk"><i></i><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><i></i></span></div>
+        <div class="fstage">
+          <div class="ico blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.1"/><path d="M12 2.6v3.1M12 18.3v3.1M21.4 12h-3.1M5.7 12H2.6M18.6 5.4l-2.2 2.2M7.6 16.4l-2.2 2.2M18.6 18.6l-2.2-2.2M7.6 7.6 5.4 5.4"/></svg></div>
+          <div class="ft">Deterministic orchestrator</div>
+          <div class="fd">Runs the plan in order, routes each step, and checks every hand-off against a <b>contract</b>.</div>
+          <div class="tags"><span class="tag">topo-order</span><span class="tag">seam contracts</span><span class="tag ok">guardrails</span><span class="tag ok">approval gates</span></div>
+        </div>
+        <div class="fconn"><span class="flbl">invoke</span><span class="ftrk"><i></i><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><i></i></span></div>
+        <div class="fstage">
+          <div class="ico blue"><svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/><rect x="10" y="10" width="4" height="4" rx="1"/><path d="M9 3.5v3M15 3.5v3M9 17.5v3M15 17.5v3M3.5 9h3M3.5 15h3M17.5 9h3M17.5 15h3"/></svg></div>
+          <div class="ft">AgentRunner</div>
+          <div class="fd">Runs each specialist as a real <b>headless agent</b> — swappable backend.</div>
+          <div class="tags"><span class="tag">copilot</span></div>
+        </div>
+        <div class="fconn"><span class="flbl">events</span><span class="ftrk"><i></i><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><i></i></span></div>
+        <div class="fstage">
+          <div class="ico green"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5.5" rx="6.5" ry="2.6"/><path d="M5.5 5.5v13c0 1.45 2.9 2.6 6.5 2.6s6.5-1.15 6.5-2.6v-13"/><path d="M5.5 12c0 1.45 2.9 2.6 6.5 2.6s6.5-1.15 6.5-2.6"/></svg></div>
+          <div class="ft">Event-sourced memory</div>
+          <div class="fd">Every move appended to a <b>log</b> in SQLite — the whole run replays exactly.</div>
+          <div class="tags"><span class="tag ok">audit</span><span class="tag ok">replay</span><span class="tag">recall graph</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 5 — WHAT YOU JUST SAW (the loop; NOT a demo slide) ============ -->
+  <section class="slide" data-time="02:30 – 03:38"
+    data-notes="<h5>What you just saw · the calibrated-proactivity loop</h5>
+    This slide recaps the screen recording — it is NOT the demo itself. Reinforce the brand line <b>&lsquo;silence is the default.&rsquo;</b> The loop: delegate → team forms as a mini-DAG → works silently with a live counter of routine decisions → ONE calibrated ping for a genuine judgment call, noting it held back N routine choices → verified, provenance-stamped report. The persona toggle (PM · Applied/DS · SWE) means the value lands for everyone. The dashboard hard-cut proves it's a real, auditable run — not a mockup.
+    <p class='src'><b>Source:</b> <code>prototype/jarvis-bubble/index.html</code> &amp; <code>README.md</code> (delegate → team-as-DAG → silent work + routine-decision counter → one calibrated ping with &lsquo;held back N&rsquo; → verified provenance report; PM/Applied-DS/SWE personas); <code>immortals/dashboard/</code> + <code>README.md</code> &lsquo;dashboard&rsquo; (real run: DAG, event timeline, per-node cost); <code>design/handoff.md</code> AS-029 (&lsquo;silence is the default&rsquo;, calibrated proactivity).</p>">
+    <div class="kicker"><span class="sw">⚔</span> What you just saw <span class="num">· 05</span></div>
+    <h1><span class="em">Silence</span> is the default.</h1>
+    <div class="dek">It interrupts once — for a real judgment call — and tells you how much it handled on its own.</div>
+    <div class="centerband">
+      <div class="flow">
+        <div class="fstage">
+          <div class="ico blue">1</div>
+          <div class="ft">Delegate</div>
+          <div class="fd">One sentence, plain English.</div>
+        </div>
+        <div class="fconn"><span class="ftrk"><i></i><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><i></i></span></div>
+        <div class="fstage">
+          <div class="ico blue">2</div>
+          <div class="ft">Team forms</div>
+          <div class="fd">A mini-DAG: research → critique → build.</div>
+        </div>
+        <div class="fconn"><span class="ftrk"><i></i><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><i></i></span></div>
+        <div class="fstage">
+          <div class="ico blue">3</div>
+          <div class="ft">Works silently</div>
+          <div class="fd">A live counter of routine decisions it handles itself.</div>
+        </div>
+        <div class="fconn"><span class="ftrk"><i></i><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><i></i></span></div>
+        <div class="fstage">
+          <div class="ico amber"><svg viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10.3 20a1.9 1.9 0 0 0 3.4 0"/></svg></div>
+          <div class="ft">One calibrated ping</div>
+          <div class="fd">A genuine judgment call —<svg class="minib" viewBox="0 0 24 24"><path d="M9 9a6 6 0 0 1 9-1M6 9.5c0 4.5-2 5.5-2 5.5h11M10.3 19a1.9 1.9 0 0 0 3.4 0M3 3l18 18"/></svg>held back 9 routine choices.</div>
+        </div>
+        <div class="fconn"><span class="ftrk"><i></i><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><i></i></span></div>
+        <div class="fstage">
+          <div class="ico green"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.5L19 7"/></svg></div>
+          <div class="ft">Verified report</div>
+          <div class="fd">Provenance-stamped. Auditable from the event log.</div>
+        </div>
+      </div>
+      <div class="personas">
+        <span class="pchip"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c0-3.7 3.1-6.2 7-6.2s7 2.5 7 6.2"/></svg>PM</span>
+        <span class="pchip"><svg viewBox="0 0 24 24"><path d="M3.5 21h17"/><rect x="5" y="11" width="3" height="7"/><rect x="10.5" y="6" width="3" height="12"/><rect x="16" y="13" width="3" height="5"/></svg>Applied / DS</span>
+        <span class="pchip"><svg viewBox="0 0 24 24"><path d="M8.5 8.5 4 12l4.5 3.5M15.5 8.5 20 12l-4.5 3.5M13.5 5.5l-3 13"/></svg>SWE</span>
+        <span style="font-size:1.5vh;color:var(--muted)">— same loop, role-tailored task</span>
+      </div>
+      <div id="term" class="glass" aria-hidden="true">
+        <div class="tbar"><i style="background:#f0625d"></i><i style="background:#f5bf4f"></i><i style="background:#5bc26a"></i>
+          <span style="font-size:1.25vh;color:var(--dim);margin-left:.5em">innovation-digest · live event log</span></div>
+        <div class="tbody">
+          <div class="tl"><span class="cmd">&gt; innovation-digest</span></div>
+          <div class="tl">  - <span class="ag">Humboldt</span>  research-sources ...</div>
+          <div class="tl">  <span class="ok">[ok]</span> Humboldt <span class="arrow">-&gt;</span> research_report</div>
+          <div class="tl">  - <span class="ag">Socrates</span>  stress-test ...</div>
+          <div class="tl">  <span class="ok">[ok]</span> Socrates <span class="arrow">-&gt;</span> design_critique   <span class="arrow">&lt;- research_report</span></div>
+          <div class="tl">  <span class="ask">[?]</span> <span class="ag">Linus</span>  build-worker  -- awaiting approval</div>
+          <div class="tl">  <span class="ok">[approved]</span></div>
+          <div class="tl">  <span class="ok">[ok]</span> Linus <span class="arrow">-&gt;</span> worker_impl</div>
+          <div class="tl"><span class="ok">= run complete</span></div>
+          <span class="cursor"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 6 — RESULTS (the proof) ============ -->
+  <section class="slide" data-time="03:38 – 04:30"
+    data-notes="<h5>Results · the proof (the heart of the pitch)</h5>
+    The real <code>innovation-digest</code> run. Hit the stats, then slow down for the money moment: Socrates independently caught a CRITICAL flaw the naive plan missed (per-item Gemini calls would blow Cloudflare's 50-subrequest/invocation cap and abort the digest) → Linus implemented batched summarization. The team produced BETTER architecture than the plan it was given — proof it's a real critical team, not a yes-man. State the honest caveat for credibility: headless = build/typecheck/tests/dry-run; final deploy is manual.
+    <p class='src'><b>Source (every figure):</b> <code>design/evidence/agentsuite-empirical-validation-2026-06-20.md</code> — 4 nodes / 3 specialists (Humboldt→Socrates→Linus→Linus); <b>8/8</b> pre-registered criteria PASS (§8); <b>78/78</b> tests (worker 55 + extension 23); 155,540 output tokens; ~42 min agent compute; 22-event replayable log; Socrates&rsquo;s 50-subrequest catch → batched summarization (§7 &amp; §10); caveat (Threats to validity / §10). Orchestrator engine itself: <b>173 tests</b> — note: README badge shows 159; the run record states the engine&rsquo;s own suite is 173 passing. Use 173 (latest) and flag if asked.</p>">
+    <div class="kicker"><span class="sw">⚔</span> Results · a real run <span class="num">· 06</span></div>
+    <div class="s6body">
+    <h1>A real build. <span class="emok">Verified</span> &amp; audited.</h1>
+    <div class="dek">A critic that catches a critical flaw the plan missed is a real team — not one yes-man chatbot.</div>
+    <p class="lede" style="margin-bottom:1.2vh">We handed it a genuine product — a weekly research digest:
+      a <b>Cloudflare</b> backend + a <b>Chrome</b> extension, end to end.</p>
+    <div class="stats">
+      <div class="stat"><div class="v ok"><span class="cu" data-to="8">0</span>/8</div><div class="k">pre-registered<br>criteria passed</div></div>
+      <div class="stat"><div class="v ok"><span class="cu" data-to="78">0</span>/78</div><div class="k">tests passing<br>(55 worker · 23 ext)</div></div>
+      <div class="stat"><div class="v bl"><span class="cu" data-to="4">0</span> / <span class="cu" data-to="3">0</span></div><div class="k">DAG nodes /<br>specialists</div></div>
+      <div class="stat"><div class="v bl"><span class="cu" data-to="22">0</span></div><div class="k">event log<br>(replayable)</div></div>
+      <div class="stat"><div class="v bl">~<span class="cu" data-to="42">0</span>m</div><div class="k">agent compute<br><span class="cu" data-to="155540" data-comma="1">0</span> tokens</div></div>
+    </div>
+    <div class="money">
+      <div class="ba bad">
+        <div class="lbl">The naive plan</div>
+        <div class="txt"><span class="bad-t">Summarize one item per call</span> → blows Cloudflare's hard
+          <b>50-subrequest</b> cap → the digest <b>aborts mid-run.</b></div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="ba fix">
+        <div class="lbl">The critic caught it — on its own</div>
+        <div class="txt"><span class="ok-t">Socrates</span> <span class="mut">(the critic)</span> flagged the flaw; <span class="ok-t">Linus</span> <span class="mut">(the coder)</span>
+          shipped <b>batched summarization.</b> Better architecture than the plan it was handed.</div>
+      </div>
+    </div>
+    <div class="caveat"><svg viewBox="0 0 24 24"><path d="M12 3.5 22 20H2L12 3.5z"/><path d="M12 10v4.5M12 17.2v.01"/></svg>Honest caveat: headless agents verify by build · typecheck · tests · dry-run — the final deploy is still a human click.</div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 7 — VISION / ROADMAP ============ -->
+  <section class="slide" data-time="04:30 – 05:00 (a)"
+    data-notes="<h5>Vision · today minutes, next days</h5>
+    Position what exists (minutes-scale, proven) against the north star (delegate for days). Walk the roadmap rail: eval-first (the keystone) → durable task lifecycle (survives restarts) → manager-as-a-service daemon → the calibrated check-in policy (the novel, patent-worthy core) → the bubble + earned autonomy (patrecAS learns you). Stress the guardrail: task-scoped, never life-watching.
+    <p class='src'><b>Source:</b> <code>design/plan.md</code> Phases 6.5–10 (eval harness → durable lifecycle → manager-as-a-service → calibrated check-in policy ★ the IP core → conversational surface + earned autonomy); <code>design/handoff.md</code> AS-029 (long-running days-scale, durable/survives restarts, earned autonomy, task-scoped not life-watching).</p>">
+    <div class="kicker"><span class="sw">⚔</span> The vision <span class="num">· 07</span></div>
+    <h1>Today: minutes.<br>Next: <span class="em">days.</span></h1>
+    <div class="dek">Delegate and walk away for days — and it earns the autonomy to handle more, the more it learns you.</div>
+    <p class="lede" style="margin-bottom:.6vh">A long-running agent you delegate to for days — it survives
+      restarts, learns which calls you want to make, and <span class="em2">earns</span> more autonomy.
+      <span class="mut">Always task-scoped; never watching your life.</span></p>
+    <div class="centerband">
+      <div class="flow timeline">
+        <div class="fstage now">
+          <div class="ico green"><svg viewBox="0 0 24 24"><path d="M4 19a8 8 0 1 1 16 0"/><path d="M12 19l4.5-5.5"/><circle cx="12" cy="19" r="1.3" fill="currentColor" stroke="none"/></svg></div>
+          <div class="fp">Phase 6.5</div>
+          <div class="ft">Eval-first</div>
+          <div class="fd">An outcome-quality harness — the keystone.</div>
+        </div>
+        <div class="fconn"><span class="ftrk"><i></i><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><i></i></span></div>
+        <div class="fstage">
+          <div class="ico blue"><svg viewBox="0 0 24 24"><path d="M20 11A8 8 0 0 0 6.3 6.3L3.5 9"/><path d="M3.5 4.5V9H8"/><path d="M4 13a8 8 0 0 0 13.7 4.7l2.8-2.7"/><path d="M20.5 19.5V15H16"/></svg></div>
+          <div class="fp">Phase 7</div>
+          <div class="ft">Durable lifecycle</div>
+          <div class="fd">Tasks survive restarts; park &amp; resume for days.</div>
+        </div>
+        <div class="fconn"><span class="ftrk"><i></i><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><i></i></span></div>
+        <div class="fstage">
+          <div class="ico blue"><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="6" rx="1.6"/><rect x="3.5" y="13" width="17" height="6" rx="1.6"/><path d="M7 7.5h.01M7 16h.01"/></svg></div>
+          <div class="fp">Phase 8</div>
+          <div class="ft">Manager-as-a-service</div>
+          <div class="fd">An always-on daemon + streaming API.</div>
+        </div>
+        <div class="fconn"><span class="ftrk"><i></i><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><i></i></span></div>
+        <div class="fstage star">
+          <div class="ico indigo"><svg viewBox="0 0 24 24"><path d="M12 3.2l2.6 5.7 6.2.8-4.6 4.3 1.2 6.1-5.4-3-5.4 3 1.2-6.1-4.6-4.3 6.2-.8z"/></svg></div>
+          <div class="fp">Phase 9 ★</div>
+          <div class="ft">Calibrated check-ins</div>
+          <div class="fd">The novel core — when to interrupt. precision &gt; recall.</div>
+        </div>
+        <div class="fconn"><span class="ftrk"><i></i><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><i></i></span></div>
+        <div class="fstage">
+          <div class="ico blue"><svg viewBox="0 0 24 24"><path d="M20.5 11.5a7.5 7.5 0 0 1-10.8 6.8L4 20l1.7-5.6A7.5 7.5 0 1 1 20.5 11.5z"/><path d="M9 11h.01M12.5 11h.01M16 11h.01"/></svg></div>
+          <div class="fp">Phase 10</div>
+          <div class="ft">Bubble + earned autonomy</div>
+          <div class="fd">patrecAS learns you; the desktop client.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 8 — CLOSE ============ -->
+  <section class="slide close" data-time="04:30 – 05:00 (b)"
+    data-notes="<h5>Close · the Microsoft tie-in + CTA</h5>
+    Land the mission genuinely — Immortals is a concrete way to &lsquo;empower every person and organization to achieve more&rsquo;: it gives every Microsoft IC an expert team to delegate to. End on the callback to the opening: your next idea doesn't wait in your head — it ships. Hold the ⚔ Immortals mark.
+    <p class='src'><b>Source:</b> Microsoft official mission statement (&lsquo;empower every person and every organization on the planet to achieve more&rsquo;); <code>design/handoff.md</code> AS-029 (the delegated expert-team north star). Callback to Slide 1's hook.</p>">
+    <div class="kicker" style="justify-content:center"><span class="sw">⚔</span> Immortals</div>
+    <h1>An expert team — for every<br>person at Microsoft.</h1>
+    <p class="mission">Microsoft's mission is to <b>empower every person and every organization on the
+      planet to achieve more.</b> Immortals gives every one of us an expert team to delegate to.</p>
+    <div class="cta">Your next idea doesn't wait in your head. It ships.</div>
+    <div class="mark"><span style="color:var(--accent)">⚔</span> Immortals</div>
+  </section>
+
+</div>
+
+<!-- ===== chrome ===== -->
+<div id="orb" aria-hidden="true"><span class="core">⚔</span></div>
+<div id="spine" aria-hidden="true"><div class="srail"></div><div class="snodes"></div><div class="sdot"></div></div>
+<div class="footer">
+  <span class="brand"><span class="sw">⚔</span> Immortals</span>
+  <span class="mid">Microsoft demo-day · ~5 min pitch</span>
+  <span class="count"><span id="pageNum">1</span> / 8 &nbsp;·&nbsp; <span id="clock">00:00</span></span>
+</div>
+<div id="legend" aria-hidden="true">
+  <div class="lg-row"><kbd>→</kbd><span>next</span></div>
+  <div class="lg-row"><kbd>←</kbd><span>back</span></div>
+  <div class="lg-row"><kbd>S</kbd><span>notes</span></div>
+  <div class="lg-row"><kbd>F</kbd><span>full</span></div>
+  <div class="lg-row"><kbd>O</kbd><span>overview</span></div>
+</div>
+
+<!-- ===== speaker-notes drawer ===== -->
+<div id="notes">
+  <header><b>Speaker notes</b><span>press <kbd style="background:#283041;border:1px solid #2a2f3a;border-radius:5px;padding:.1em .5em">S</kbd> to close</span></header>
+  <div id="notesBody"></div>
+</div>
+
+<script>
+(function(){
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var cur = 0;
+  var bar = document.getElementById('bar');
+  var pageNum = document.getElementById('pageNum');
+  var clock = document.getElementById('clock');
+  var notes = document.getElementById('notes');
+  var notesBody = document.getElementById('notesBody');
+
+  // fragments per slide (elements with .frag). Each slide tracks how many shown.
+  function frags(s){ return Array.prototype.slice.call(s.querySelectorAll('.frag')); }
+
+  function render(){
+    slides.forEach(function(s,i){ s.classList.toggle('active', i===cur); });
+    pageNum.textContent = (cur+1);
+    bar.style.width = ((cur)/(slides.length-1)*100) + '%';
+    updateNotes();
+    if(location.hash !== '#'+(cur+1)) history.replaceState(null,'','#'+(cur+1));
+    document.dispatchEvent(new CustomEvent('slidechange',{detail:cur}));
+  }
+  function updateNotes(){
+    var s = slides[cur];
+    var t = s.getAttribute('data-time') || '';
+    notesBody.innerHTML = '<span class="time">⏱ '+t+'</span>' + (s.getAttribute('data-notes')||'');
+  }
+
+  function nextFrag(){
+    var s = slides[cur];
+    var f = frags(s);
+    var hidden = f.filter(function(e){ return !e.classList.contains('show'); });
+    if(hidden.length){ hidden[0].classList.add('show'); return true; }
+    return false;
+  }
+  function prevFrag(){
+    var s = slides[cur];
+    var f = frags(s).filter(function(e){ return e.classList.contains('show'); });
+    if(f.length){ f[f.length-1].classList.remove('show'); return true; }
+    return false;
+  }
+  function showAllFrags(s){ frags(s).forEach(function(e){ e.classList.add('show'); }); }
+
+  function go(n){
+    if(n<0||n>=slides.length) return;
+    cur=n;
+    // entering a slide fresh: hide its fragments
+    frags(slides[cur]).forEach(function(e){ e.classList.remove('show'); });
+    render();
+  }
+  function next(){ if(!nextFrag()){ if(cur<slides.length-1){ go(cur+1);} } else { render(); } }
+  function prev(){ if(!prevFrag()){ if(cur>0){ cur--; showAllFrags(slides[cur]); render(); } } else { render(); } }
+
+  document.addEventListener('keydown', function(e){
+    switch(e.key){
+      case 'ArrowRight': case ' ': case 'PageDown': e.preventDefault(); next(); break;
+      case 'ArrowLeft': case 'PageUp': e.preventDefault(); prev(); break;
+      case 'Home': go(0); break;
+      case 'End': go(slides.length-1); break;
+      case 's': case 'S': notes.classList.toggle('open'); break;
+      case 'f': case 'F':
+        if(!document.fullscreenElement){ document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen(); }
+        else { document.exitFullscreen&&document.exitFullscreen(); }
+        break;
+      case 'o': case 'O': toggleOverview(); break;
+      case 'Escape': if(overview) toggleOverview(); break;
+    }
+  });
+  // click / tap to advance (ignore clicks inside the notes drawer)
+  document.getElementById('deck').addEventListener('click', function(e){ next(); });
+
+  // simple overview (zoom-out grid)
+  var overview=false;
+  function toggleOverview(){
+    overview=!overview;
+    var deck=document.getElementById('deck');
+    if(overview){
+      deck.style.transform='scale(.86)';deck.style.filter='brightness(.9)';
+    } else { deck.style.transform='';deck.style.filter=''; }
+  }
+
+  // deep-link via hash
+  function fromHash(){
+    var n=parseInt((location.hash||'').replace('#',''),10);
+    if(n>=1&&n<=slides.length){ cur=n-1; }
+  }
+  window.addEventListener('hashchange', function(){ fromHash(); render(); });
+
+  // running clock (since first key/interaction) — a rehearsal aid
+  var started=null;
+  function tick(){
+    if(started){
+      var s=Math.floor((Date.now()-started)/1000);
+      clock.textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+    }
+    requestAnimationFrame(tick);
+  }
+  document.addEventListener('keydown',function(){ if(!started) started=Date.now(); },{once:true});
+
+  fromHash(); render(); tick();
+})();
+</script>
+
+<!-- ===== PASS-3 ambient/proof visual system (self-contained) ===== -->
+<script>
+(function(){
+  var R = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  var GRAPH_SLIDES = {0:1, 2:1, 6:1, 7:1};   // slides 1,3,7,8 (0-indexed)
+  var slidesEls = document.querySelectorAll('.slide');
+  var N = slidesEls.length;
+  var orb = document.getElementById('orb');
+  var legend = document.getElementById('legend');
+
+  /* ---- DAG spine ---- */
+  var spine = document.getElementById('spine');
+  var snodes = spine.querySelector('.snodes');
+  var sdot = spine.querySelector('.sdot');
+  var pos = [];
+  for(var i=0;i<N;i++){
+    var p = (N===1?50:(i/(N-1))*100); pos.push(p);
+    var d = document.createElement('div'); d.className='sn'; d.style.left=p+'%'; snodes.appendChild(d);
+  }
+  var sns = snodes.querySelectorAll('.sn');
+  function spineTo(idx, instant){
+    if(instant){ sdot.style.transition = 'none'; }
+    sdot.style.left = pos[idx] + '%';
+    for(var i=0;i<sns.length;i++){ sns[i].classList.toggle('done', i<=idx); }
+    if(instant){ void sdot.offsetWidth; sdot.style.transition = ''; }  // force reflow, then restore smooth easing
+  }
+
+  /* ---- orb pulse ---- */
+  function pulse(){ if(R) return; orb.classList.remove('pulse'); void orb.offsetWidth; orb.classList.add('pulse'); }
+
+  /* ---- count-up (slide 6) ---- */
+  function fmt(n, comma){ return comma ? n.toLocaleString('en-US') : String(n); }
+  function countUp(el){
+    var to = parseInt(el.getAttribute('data-to'),10);
+    var comma = el.getAttribute('data-comma')==='1';
+    if(R){ el.textContent = fmt(to, comma); return; }
+    var dur = 1000, t0 = performance.now();
+    (function step(now){
+      var p = Math.min(1, (now - t0)/dur), e = 1 - Math.pow(1-p, 3);
+      el.textContent = fmt(Math.round(e*to), comma);
+      if(p < 1) requestAnimationFrame(step);
+    })(performance.now());
+  }
+  function runCounts(){
+    var s = slidesEls[5]; if(!s) return;
+    var cus = s.querySelectorAll('.cu');
+    for(var i=0;i<cus.length;i++){ cus[i].textContent='0'; countUp(cus[i]); }
+  }
+
+  /* ---- live event-log (slide 5) ---- */
+  var termTimer = null;
+  function stopTerm(){ if(termTimer){ clearInterval(termTimer); termTimer=null; } }
+  function runTerm(){
+    var s = slidesEls[4]; if(!s) return;
+    var lines = s.querySelectorAll('#term .tl');
+    var cursor = s.querySelector('#term .cursor');
+    for(var i=0;i<lines.length;i++){ lines[i].classList.remove('show'); }
+    stopTerm();
+    if(R){ for(var j=0;j<lines.length;j++){ lines[j].classList.add('show'); } if(cursor) cursor.style.display='none'; return; }
+    if(cursor) cursor.style.display='inline-block';
+    var k = 0;
+    function reveal(){
+      if(k < lines.length){
+        lines[k].classList.add('show');
+        if(cursor) lines[k].appendChild(cursor);
+        k++;
+      } else { stopTerm(); if(cursor) cursor.style.display='none'; }
+    }
+    reveal();
+    termTimer = setInterval(reveal, 340);
+  }
+
+  /* ---- ambient node-graph backdrop ---- */
+  var cv = document.getElementById('nodegraph'), ctx = cv.getContext('2d');
+  var nodes = [], DPR = Math.min(2, window.devicePixelRatio||1), graphOn = false;
+  function sizeCv(){ cv.width = window.innerWidth*DPR; cv.height = window.innerHeight*DPR; }
+  sizeCv();
+  for(var g=0; g<26; g++){
+    nodes.push({ x:Math.random(), y:Math.random(),
+      vx:(Math.random()-.5)*0.00016, vy:(Math.random()-.5)*0.00016 });
+  }
+  function draw(){
+    requestAnimationFrame(draw);
+    if(!graphOn || document.hidden) return;
+    var W = cv.width, H = cv.height;
+    ctx.clearRect(0,0,W,H);
+    for(var i=0;i<nodes.length;i++){
+      var n = nodes[i]; n.x += n.vx; n.y += n.vy;
+      if(n.x<0)n.x=1; if(n.x>1)n.x=0; if(n.y<0)n.y=1; if(n.y>1)n.y=0;
+    }
+    for(var a=0;a<nodes.length;a++){
+      for(var b=a+1;b<nodes.length;b++){
+        var na=nodes[a], nb=nodes[b], dx=na.x-nb.x, dy=na.y-nb.y, dd=Math.sqrt(dx*dx+dy*dy);
+        if(dd < 0.16){
+          ctx.strokeStyle = 'rgba(122,150,230,' + ((1-dd/0.16)*0.16) + ')';
+          ctx.lineWidth = DPR;
+          ctx.beginPath(); ctx.moveTo(na.x*W, na.y*H); ctx.lineTo(nb.x*W, nb.y*H); ctx.stroke();
+        }
+      }
+    }
+    ctx.fillStyle = 'rgba(150,180,255,0.42)';
+    for(var c=0;c<nodes.length;c++){
+      ctx.beginPath(); ctx.arc(nodes[c].x*W, nodes[c].y*H, 2*DPR, 0, 6.2832); ctx.fill();
+    }
+  }
+  draw();
+  window.addEventListener('resize', function(){ DPR=Math.min(2,window.devicePixelRatio||1); sizeCv(); });
+
+  /* ---- legend idle auto-fade ---- */
+  var legTimer = null;
+  function wakeLegend(){
+    legend.classList.add('show');
+    if(legTimer) clearTimeout(legTimer);
+    legTimer = setTimeout(function(){ legend.classList.remove('show'); }, 2600);
+  }
+  window.addEventListener('mousemove', wakeLegend, {passive:true});
+  wakeLegend();
+
+  /* ---- per-slide orchestration ---- */
+  // current slide index is ALWAYS read from the DOM (single source of truth),
+  // so the spine dot is a pure function of the active slide — never an accumulator.
+  function currentIndex(){
+    for(var i=0;i<slidesEls.length;i++){ if(slidesEls[i].classList.contains('active')) return i; }
+    return 0;
+  }
+  function onSlide(instant){
+    var idx = currentIndex();
+    spineTo(idx, instant);
+    pulse();
+    graphOn = !!GRAPH_SLIDES[idx] && !R;
+    cv.classList.toggle('on', graphOn);
+    stopTerm();
+    if(idx===4) runTerm();
+    if(idx===5) runCounts();
+  }
+  document.addEventListener('slidechange', function(){ onSlide(false); });
+
+  // initial load / deep-link (#n): snap the dot to node n immediately (no mid-travel)
+  onSlide(true);
+})();
+</script>
+</body>
+</html>

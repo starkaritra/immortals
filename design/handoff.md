@@ -1,6 +1,6 @@
-# AgentSuite — Handoff
+# Immortals — Handoff
 
-> Current state + next actions for the AgentSuite orchestration project. Rationale lives in
+> Current state + next actions for the Immortals orchestration project. Rationale lives in
 > the decision log below; `architecture.md` is the normative target spec; `plan.md` is the
 > phased build order.
 
@@ -12,10 +12,19 @@ typed, validated **plan (DAG)**; a **deterministic Python orchestrator** execute
 invoking worker agents as **headless `copilot` processes** and routing typed **artifacts**
 between them through a **local SQLite + MCP** memory substrate.
 
+> **North star (AS-029):** Immortals is **an enterprise-grade expert team you delegate to — a
+> "personal JARVIS."** Hand it a task; a **long-running** agent (minutes→days, durable) drives it
+> to a **tangible finished outcome**, reaching out **only** when it truly needs you (clarify /
+> decide / deliver) — silence is the default, never a notification firehose — and **earns
+> autonomy** as it learns you. JARVIS-first, framework-capable. The Phase 0–6 engine is the
+> substrate; Phases 6.5–10 (`plan.md`) build the vision on top.
+
 ## 2. Current state
 - **Phase:** **2 DONE** (memory substrate incl. MCP server) + **Phases 3, 4, 5, 6 DONE**. Phases 0–1
-  complete. Remaining is forward scope (Phase 7 inventive).
-- **Built:** `agentsuite/` — `contracts/` (4 schemas + validator + models), `registry/` (loader
+  complete. Forward scope is the **vision roadmap (Phases 6.5–10, AS-029)**: outcome-quality eval →
+  durable task lifecycle →
+  manager-as-a-service daemon → proactive check-in policy → conversational surface + earned autonomy.
+- **Built:** `immortals/` — `contracts/` (4 schemas + validator + models), `registry/` (loader
   with `route()`/`describe()`) + 9 worker manifests, `runners/` (`AgentRunner`, `MockRunner`,
   `CopilotRunner` Backend A — `--output-format json` usage, `mcp_config` + `env_extra` injection),
   `orchestrator/` (deterministic DAG executor: validation, topo-order, seam validation, event
@@ -24,22 +33,25 @@ between them through a **local SQLite + MCP** memory substrate.
   only `event/v1` log + `(task_id,id)` artifacts + `notes` KV + agent-namespaced `facts`, schema v3
   w/ migration, append-only triggers, `reconstruct`; **`derived.py`** — `DerivedMemory` projects a
   knowledge graph + a semantic vector index; **`embedding.py`** — pluggable `Embedder` seam + zero-dep
-  `HashingEmbedder`; **`mcp_server.py`** zero-dep stdio JSON-RPC), and `cli.py`
-  (`run [...] [--share-memory]` · `replay` · `agents [install]` · `route` · `recall` · `memory` — AS-013..024).
-  Tests: **159 passing**.
-- **Ship-ready (AS-024):** all paths resolve through `agentsuite/config.py` (env-overridable, no
+  `HashingEmbedder`; **  `mcp_server.py`** zero-dep stdio JSON-RPC), `cli.py`
+  (`run [...] [--share-memory]` · `replay` · `agents [install]` · `route` · `recall` · `memory` ·
+  `dashboard` — AS-013..024), and **`dashboard/`** (read-only web inspector — prototype frontend; a
+  FastAPI app + single static page with 4 views over a run store; FastAPI/uvicorn behind the optional
+  `[dashboard]` extra; the read-half seed of the Phase-8 API — see `design/prototype-frontend-handoff.md`).
+  Tests: **170 passing** (159 + 11 dashboard).
+- **Ship-ready (AS-024):** all paths resolve through `immortals/config.py` (env-overridable, no
   machine-specific hard-coding); the AS personas ship in repo `agents/` (source of truth) and
-  `agentsuite agents install` syncs them into the copilot agents dir. `<name>AS.md` is the locked
+  `immortals agents install` syncs them into the copilot agents dir. `<name>AS.md` is the locked
   naming convention for all future (incl. auto-inducted) agents.
 - **Phase 6 (DONE):** derived memory (AS-023). Agent-namespaced `facts` (with `source` provenance +
   `supersedes`); `DerivedMemory.reindex/search/graph/neighbors` projects events+artifacts+facts into a
   rebuildable knowledge graph (`produced_by`/`contains`/`depends_on`/`supersedes`) and a vector index
   over artifacts+facts; pluggable `Embedder` seam (zero-dep unsigned hashed-BoW default, `sqlite-vec`/
   model is the named future backend). MCP: `memory_search`/`memory_graph`/`memory_add_fact`/
-  `memory_list_facts`. CLI: `agentsuite recall --db --query|--graph [--task-id] [--agent]`. Verified
+  `memory_list_facts`. CLI: `immortals recall --db --query|--graph [--task-id] [--agent]`. Verified
   live (recall search + graph over a real run).
 - **Phase 2 (DONE):** event-sourced store + reconstruction (AS-014); memory MCP server exposing
-  artifact/event reads + a shared `notes` KV, injected via `--share-memory` (AS-021); `agentsuite
+  artifact/event reads + a shared `notes` KV, injected via `--share-memory` (AS-021); `immortals
   memory register/unregister/status` to manage persistent registration (AS-022). Server verified
   live (default agent wrote a note). **R7 finding (AS-022):** custom `--agent` workers get **no**
   MCP tools in headless `-p` mode (injected *or* persistent — both connect but tools aren't exposed);
@@ -73,6 +85,111 @@ between them through a **local SQLite + MCP** memory substrate.
 
 ## 5. Decision log (ADR-style)
 > Append-only. Stable anchors; when superseded, keep the anchor and change the title.
+
+### [AS-028] Rebrand to "Immortals" — product/package rename (Tiers 1+2), AS personas retained
+- **Date:** 2026-06-27
+- **Status:** accepted.
+- **Context:** the system is renamed from **AgentSuite** to **Immortals**. The "AS" suffix
+  (Agent Suite) is woven through three tiers with very different blast radii: (1) brand strings,
+  (2) the Python package / CLI module / `AGENTSUITE_*` env vars, (3) the 10 `<name>AS.md` personas
+  and the immutable `AS-NNN` decision anchors. A blanket rename of (3) is high-risk and largely
+  semantic.
+- **Options considered:**
+  - Brand only (Tier 1) — cheap, but leaves `python -m agentsuite` / `AGENTSUITE_*` mismatched
+    with the brand; confusing once published (AS-025). Pro: zero code risk. Con: half-rebrand.
+  - Brand + package (Tiers 1+2) — rename `agentsuite/`→`immortals/`, `AGENTSUITE_*`→`IMMORTALS_*`,
+    `python -m agentsuite`→`python -m immortals`; keep personas + anchors. Pro: clean public
+    identity before the unpublished v0.0.1 ships (cheap now, a one-way door after PyPI). Con:
+    ~340 mechanical edits across 47 files.
+  - Full sweep (Tiers 1+2+3) — also rename 10 installed personas to `*IM` and re-anchor decisions.
+    Pro: total consistency. Con: violates the immutable-anchor ADR rule; rewrites user-facing
+    personas referenced everywhere; high risk, low value.
+- **Decision:** **Brand + package (Tiers 1+2).** Conceptual split: **Immortals = the orchestration
+  system; the AS agents are "the immortals" it commands.** Personas keep the `<name>AS.md`
+  convention; `AS-NNN` anchors stay immutable; `patrecAS/` keeps its name.
+- **Rationale:** v0.0.1 is unpublished and has **no git remote**, so the package rename is a cheap
+  reversible edit *now* and an expensive one-way door *after* the AS-025 publish — do it first.
+  Keeping personas/anchors respects the immutable-anchor rule and avoids a risky, low-value rewrite.
+- **Consequences:** managerAS's persona updated its `python -m agentsuite …` command strings to
+  `python -m immortals …`; `pyproject` name/packages/package-data updated; kgraph project renamed.
+  **Local repo folder rename** `C:\Code\AgentSuite`→`C:\Code\Immortals` is deferred (would orphan
+  the path-keyed
+  kgraph memory + this session cwd) — a deliberate manual follow-up. A console-script entry point
+  (`immortals`) is folded into the packaging-polish workstream.
+- **Links:** AS-024 (config seam carrying the env vars), AS-025 (publish — why now beats later).
+
+### [AS-029] North-star vision — Immortals as a delegated, long-running expert team ("personal JARVIS")
+- **Date:** 2026-06-27
+- **Status:** accepted (vision; supersedes nothing — it *frames* AS-025/026/027 under one north star).
+- **Context:** the engine (Phases 0–6) is mature but its forward scope was three deferred-but-locked
+  bets (AS-025 publish + conversational surface, AS-026 desktop bubble, AS-027 patrecAS adaptive
+  learning) with no single north star tying them together. Vision scoping session (2026-06-27)
+  established that.
+- **North star:** **Immortals is an enterprise-grade expert team you delegate to — a "personal
+  JARVIS."** You hand it a task in plain English; it runs as a **long-running agent** (minutes to
+  days, durably, surviving reboots) that works autonomously toward a **tangible finished outcome**,
+  and reaches out **only** when it genuinely needs you (a clarification, a real decision fork, or to
+  deliver) — never a notification firehose. As it learns what you accept/dismiss, it **earns more
+  autonomy.** The owner is the primary user; the engine stays general enough for others to repurpose
+  (**JARVIS-first, framework-capable**).
+- **Scope corrections locked (what it is NOT):**
+  - **Task-scoped, not life-watching.** "Proactive/ambient" means it drives *the task it was handed*
+    and surfaces task-relevant moments — it does **not** surveil the owner's whole context/screen/life.
+  - **Tangible outcomes, not chat.** The unit of delivery is a finished deliverable, not a reply.
+  - **Silence is the default.** A push notification must *earn* its interruption: high-precision,
+    low-volume, rate-limited, quiet-hours — explicitly **not** Swiggy/Zomato-style incessant pings.
+    The false-positive (annoying ping) cost ≫ the false-negative (missed suggestion) cost.
+  - **Earned autonomy.** Starts suggest-only; graduates to acting on low-risk items as it learns the
+    owner (patrecAS/learnAS-gated, AS-027) — propose-not-apply remains the safety floor.
+- **Lifecycle decision:** design for the **hardest case (days)**; minutes is the trivial case.
+  Tasks become **first-class durable entities** (lifecycle states) layered on the existing
+  event-sourced store; a **daemon/manager-as-a-service** (AS-025) loads in-flight tasks on startup
+  and resumes them (the `--resume`/event-log spine already exists, AS-016); the synchronous approval
+  gate generalizes to an **async park/resume** (`waiting_on_human`) so a task can wait hours/days
+  for the owner without holding a process.
+- **Architecture delta (what's new vs Phases 0–6):** ① durable task lifecycle, ② manager-as-a-service
+  daemon + streaming API, ③ the **proactive check-in policy** (the WHEN-to-interrupt engine — the
+  genuinely novel, patent-worthy core; precision over recall), ④ conversational surface + earned
+  autonomy. The plan→execute→artifact engine, event-log durability, resume, guardrails, approval
+  gate, and derived memory are the **substrate** these layer onto — not a rewrite.
+- **Consequences:** Phase 7 is re-scoped from a generic "inventive" grab-bag into a concrete vision
+  roadmap (Phases 6.5–10, see `plan.md`); AS-025/026/027 become the named sub-bets of this north star;
+  the check-in policy (Phase 9) is the priority research/IP artifact. The existing generic Phase-7
+  items (Backend C, self-experimentation, contract-typed routing, reflection/critic) fold in as
+  supporting work, not the headline.
+- **Open (deferred to the build):** the precision/relevance threshold + notification budget design;
+  manager driver shape (shell `managerAS -p` per turn vs a thin Python manager — AS-025 open Q);
+  voice now vs text-first; the MVP cut (smallest slice of Phases 7–9 that delivers "delegate → walk
+  away → tangible result with earned-trust check-ins").
+- **Stress-test refinements (discussAS red-team, 2026-06-27):** the vision held up; the
+  `innovation-digest` run (§`design/evidence/…`, n=1, 8/8 + 78/78) is real proof of the mechanism at
+  **minutes-scale**. The red-team sharpened five things, now binding on the roadmap:
+  1. **Eval-first (keystone moved earlier).** The true keystone is an **outcome-quality eval
+     harness**, which sits **before Phase 7** — *not* in "supporting/parallel." You cannot tune the
+     Phase-9 check-in threshold, bound Phase-10 autonomy safely, or *detect* days-scale drift without
+     a ground-truth quality signal. → new **Phase 6.5** in `plan.md`.
+  2. **Verifiable beachhead → expand (owner's call).** Start with a **small set of externally-
+     verifiable, code-shaped tasks** (the proven domain), where the eval reduces to "did the external
+     check pass?"; scale to judgment-quality tasks later. This retires the *self-graded-homework*
+     risk (today's "verify" = tests the agent wrote itself) and makes silent drift detectable.
+  3. **R-F, the transfer trap (design against it NOW).** Do **not** build the check-in / earned-
+     autonomy model *on top of* external verifiability, or it won't transfer to judgment-quality
+     tasks that have no external check. **Design principle:** uncertainty signals must be
+     **verifiability-agnostic** (agent confidence, plan ambiguity, decision irreversibility,
+     novelty-vs-memory); external checks are *beachhead calibration ground-truth only* — the crutch
+     must not become a load-bearing wall.
+  4. **Phase 9 reframed.** From *"minimize pings"* to **"calibrated uncertainty checkpointing under a
+     notification budget."** The objective is calibration; anti-spam is a *constraint on top* — not
+     the goal. (The run's own after-action review supports this: the one real pain was a comms gap,
+     fixed by *more* narration.) The precision-over-recall ping rule, taken literally, pushes toward
+     dangerous **under-asking** → silent-wrong deliverables; calibration is the corrective.
+  5. **Backend-C gate (one-way door).** Phases 7–8 hand-build a durable task lifecycle + daemon that
+     LangGraph/Temporal already provide — and AS-009 *plans to adopt* LangGraph as Backend C. Resolve
+     **bespoke-vs-adopt before building Phase 7–8** (legit steelman for bespoke: the transparent event
+     log is a real safety asset for earned autonomy that a framework won't replicate). See new R10.
+- **Links:** AS-025 (manager-as-a-service + conversational surface — the spine), AS-026 (bubble
+  client), AS-027 (patrecAS earned autonomy), AS-016 (resume spine), AS-006/014/023 (memory
+  substrate), AS-008/009 (eval_platform reuse + Backend C — the R10 gate).
 
 ### [AS-001] Orchestrator-workers + blackboard pattern
 - **Status:** accepted.
@@ -163,7 +280,7 @@ between them through a **local SQLite + MCP** memory substrate.
 
 ### [AS-025] Publish + manager-as-agent + conversational surface (proposed, scope)
 - **Status:** proposed (direction locked; build deferred).
-- **Context:** ship AgentSuite publicly and give it a natural always-available voice/chat surface.
+- **Context:** ship Immortals publicly and give it a natural always-available voice/chat surface.
 - **Decisions locked with owner:** publish to **PyPI + public GitHub**; **the manager is itself an
   agent** (not bespoke glue); the front surface is a **Gemini/Alexa-style conversational assistant**
   the user converses with.
@@ -175,7 +292,7 @@ between them through a **local SQLite + MCP** memory substrate.
   long-term seam and aligns with Backend C. For the **Alexa/Gemini conversational feel**: add a
   voice layer over the same API — local **STT** (e.g. `faster-whisper`) + **TTS** (e.g. Piper) +
   wake-word (e.g. openWakeWord), all local-first to preserve the no-third-party-data posture; the
-  desktop bubble (AS-026) is its visual client. Packaging: console entry point `agentsuite`, ship
+  desktop bubble (AS-026) is its visual client. Packaging: console entry point `immortals`, ship
   `registry/`+`agents/` as wheel data, GitHub Actions (pytest), Apache-2.0, SemVer `v0.1.0`.
 - **Open questions:** manager driver (i) vs (ii); voice now vs text-first; cloud vs fully-local STT/TTS.
 - **Links:** AS-024 (config seam), AS-026 (frontend), architecture "Backend C".
@@ -216,17 +333,17 @@ between them through a **local SQLite + MCP** memory substrate.
 - **Status:** accepted.
 - **Context:** prerequisite for publishing (#1) and for the frontend (#2) / learnAS (#3) seams: the
   project must run unchanged on any machine, not just the author's checkout. Hard-coded paths lived
-  in `managerAS.md` (`C:\Code\AgentSuite`, `.venv\Scripts\python.exe`); persona `.md` files lived
+  in `managerAS.md` (`C:\Code\Immortals`, `.venv\Scripts\python.exe`); persona `.md` files lived
   only in the author's `~/.copilot/agents/`.
 - **Options considered:**
   - Central config module + env overrides — pros: one place, testable, CI/packaged/dev parity;
     cons: a little indirection.
   - Sprinkle `os.environ.get` at call sites — pros: minimal; cons: scattered, undiscoverable.
-- **Decision:** added `agentsuite/config.py` — every filesystem location resolves through it with an
-  env override (`AGENTSUITE_HOME`/`_REGISTRY_DIR`/`_AGENTS_DIR`/`_COPILOT_BIN`, `COPILOT_AGENTS_DIR`,
-  `AGENTSUITE_MCP_CONFIG`), defaulting off the install location. Wired `Registry.load`, `CopilotRunner`,
+- **Decision:** added `immortals/config.py` — every filesystem location resolves through it with an
+  env override (`IMMORTALS_HOME`/`_REGISTRY_DIR`/`_AGENTS_DIR`/`_COPILOT_BIN`, `COPILOT_AGENTS_DIR`,
+  `IMMORTALS_MCP_CONFIG`), defaulting off the install location. Wired `Registry.load`, `CopilotRunner`,
   and the CLI mcp-config default through it. **The AS personas now ship in the repo** at `agents/`
-  (10 files: 9 workers + managerAS), de-hardcoded; `agentsuite agents install [--dest] [--force]`
+  (10 files: 9 workers + managerAS), de-hardcoded; `immortals agents install [--dest] [--force]`
   syncs them into the copilot agents dir (idempotent, never clobbers user edits without `--force`).
 - **Locked conventions:** (1) **personas ship with the package** (source of truth = repo `agents/`);
   (2) the **`<name>AS.md` naming convention is canonical for all future inducted agents** (incl. any
@@ -236,7 +353,7 @@ between them through a **local SQLite + MCP** memory substrate.
 - **Consequences:** 15 new tests (159 total). Wheel packaging of the sibling `registry/`+`agents/`
   dirs (so they ship in a built wheel, not just source/editable installs) is deferred to the publish
   ADR (AS-025). No behaviour change for existing source-checkout runs.
-- **Links:** `agentsuite/config.py`, `registry/loader.py`, `runners/copilot_backend.py`, `cli.py`
+- **Links:** `immortals/config.py`, `registry/loader.py`, `runners/copilot_backend.py`, `cli.py`
   (`agents install`), `agents/`, `tests/test_config.py`.
 
 ### [AS-023] Phase 6 derived memory — knowledge graph + semantic vector index (pluggable, zero-dep default)
@@ -258,7 +375,7 @@ between them through a **local SQLite + MCP** memory substrate.
   `facts` table into two rebuildable read-models: a **knowledge graph** (nodes task/agent/artifact/fact;
   edges `produced_by`/`contains`/`depends_on`/`supersedes`) and a **vector index** over artifacts + facts.
   Exposed via MCP (`memory_search`/`memory_graph`/`memory_add_fact`/`memory_list_facts`) and a new
-  `agentsuite recall` CLI. `sqlite-vec` + a real model is reframed as the *named future backend behind
+  `immortals recall` CLI. `sqlite-vec` + a real model is reframed as the *named future backend behind
   the seam*, not the MVP — reconciling the architecture doc.
 - **Rationale:** right for both MVP and production (the seam makes the upgrade a drop-in, no call-site
   churn), keeps the zero-dep/offline/reproducible posture and deterministic tests, and gives genuinely
@@ -273,7 +390,7 @@ between them through a **local SQLite + MCP** memory substrate.
 - **Consequences:** 22 new tests (144 total). Next: have the orchestrator/manager pull `recall` context
   automatically (broker, AS-022) and, when scale warrants, drop in a `sqlite-vec`/model backend behind
   the `Embedder` seam. Schema migrated v2 → v3 (adds `facts`; derived tables created on demand).
-- **Links:** `agentsuite/memory/{embedding,derived,store}.py`, `mcp_server.py`, `cli.py` (`recall`),
+- **Links:** `immortals/memory/{embedding,derived,store}.py`, `mcp_server.py`, `cli.py` (`recall`),
   `tests/test_derived.py`; architecture §"Memory architecture"/"Storage & access"; plan Phase 6.
 
 ### [AS-022] Memory registration command + R7 root cause — broker over MCP for workers
@@ -281,13 +398,13 @@ between them through a **local SQLite + MCP** memory substrate.
 - **Context:** finish R7 — let custom-agent workers share memory. Hypothesis: a *persistent* MCP
   registration (the channel kgraph uses) would expose the memory tools to custom `--agent` workers
   where `--additional-mcp-config` did not.
-- **What was built:** `agentsuite memory register|unregister|status` — adds/removes the env-resolved
+- **What was built:** `immortals memory register|unregister|status` — adds/removes the env-resolved
   memory server in `~/.copilot/mcp-config.json` (reversible, preserves other servers; `--config-path`
-  override for tests). The server now falls back to a default store (`~/.copilot/agentsuite/memory.db`)
-  when neither `--db` nor `$AGENTSUITE_MEMORY_DB` is set, so a global registration stays healthy in
+  override for tests). The server now falls back to a default store (`~/.copilot/immortals/memory.db`)
+  when neither `--db` nor `$IMMORTALS_MEMORY_DB` is set, so a global registration stays healthy in
   ordinary sessions.
 - **Experiment (decisive):** registered the server persistently, then ran a custom `--agent teachAS`
-  worker headless (`-p`) with `AGENTSUITE_MEMORY_DB` set. The server **connected**, but the agent
+  worker headless (`-p`) with `IMMORTALS_MEMORY_DB` set. The server **connected**, but the agent
   reported the tools were **not in its function list** and no note was written. Combined with the
   prior runs this establishes: **in headless `-p` mode the copilot CLI exposes MCP tools to the
   default agent but not to custom `--agent` workers — whether injected or persistently registered.**
@@ -311,13 +428,13 @@ between them through a **local SQLite + MCP** memory substrate.
   - Official `mcp` Python SDK / FastMCP — pro: standard; con: adds a dependency, diverges from the
     user's existing zero-dep kgraph MCP server.
   - **Hand-rolled stdio JSON-RPC 2.0 server (zero deps)** — mirrors `kgraph_mcp.py`, matches
-    AgentSuite's lean-deps ethos (only `jsonschema`). Chosen.
-- **Decision:** `agentsuite/memory/mcp_server.py` — newline-delimited JSON-RPC 2.0 over stdin/stdout,
+    Immortals's lean-deps ethos (only `jsonschema`). Chosen.
+- **Decision:** `immortals/memory/mcp_server.py` — newline-delimited JSON-RPC 2.0 over stdin/stdout,
   exposing `memory_{get_artifact,list_artifacts,put_note,get_note,list_notes,recent_events}`. The
   store gains a `notes` KV scratchpad (schema **v2**, with a v1→v2 migration) plus `busy_timeout`
   for concurrent orchestrator+worker access. The server resolves its DB from `--db` or
-  `$AGENTSUITE_MEMORY_DB`. Delivery seams: `run --share-memory` injects the server via
-  `--additional-mcp-config` (bound to `--db`) **and** sets `AGENTSUITE_MEMORY_DB` on the worker so a
+  `$IMMORTALS_MEMORY_DB`. Delivery seams: `run --share-memory` injects the server via
+  `--additional-mcp-config` (bound to `--db`) **and** sets `IMMORTALS_MEMORY_DB` on the worker so a
   persistently-registered server resolves the same store. `dispatch`/`call_tool` are split out for
   unit-testing without I/O.
 - **Verification:** the server is correct end-to-end — unit + a live subprocess stdio test, and a
@@ -329,8 +446,8 @@ between them through a **local SQLite + MCP** memory substrate.
   agents is the **user persistent config** (`~/.copilot/mcp-config.json`, as kgraph demonstrates).
 - **Consequences:** for custom-agent workers, register the env-resolved server **once** (opt-in, not
   done automatically — a global-config change):
-  `copilot mcp add agentsuite-memory -- <venv-python> -m agentsuite.memory.mcp_server`
-  The orchestrator already injects `AGENTSUITE_MEMORY_DB` per run, so the registered server binds to
+  `copilot mcp add immortals-memory -- <venv-python> -m immortals.memory.mcp_server`
+  The orchestrator already injects `IMMORTALS_MEMORY_DB` per run, so the registered server binds to
   the active store. Until then, the orchestrator remains the single writer of artifacts/events to the
   shared store (workers' returned artifacts are persisted centrally), so cross-run memory and audit
   are intact; only *worker-initiated* shared reads/writes await the registration. Risk **R7** added.
@@ -347,8 +464,8 @@ between them through a **local SQLite + MCP** memory substrate.
   - **Routing API + CLI.** `Registry.route(need, top=…)` ranks manifests deterministically (no LLM):
     normalised capability-phrase hits (heavy), capability-token overlap (medium), and
     `when_to_use`/`summary` overlap (light), returning `{agent, score, reasons, …}` sorted by score
-    then name. `Registry.describe()` returns the full catalogue. CLI: `agentsuite agents` (list) and
-    `agentsuite route --need "<text>" [--top N]` — the tools managerAS calls to route, so a new
+    then name. `Registry.describe()` returns the full catalogue. CLI: `immortals agents` (list) and
+    `immortals route --need "<text>" [--top N]` — the tools managerAS calls to route, so a new
     agent is reachable the moment its manifest exists.
   - **Approval floor (opt-in).** `Orchestrator(enforce_registry_approval=True)` makes a manifest's
     `approval_default: required` a sign-off *floor*: a node may *raise* approval but not lower it.
@@ -465,7 +582,7 @@ between them through a **local SQLite + MCP** memory substrate.
     "no hard-coded pass/fail thresholds" principle; surprises the owner.
   - **Configurable `Guardrails` the orchestrator enforces, every limit defaulting to `None`
     (unlimited)** — opt-in per run; deterministic; reported via events on breach.
-- **Decision:** `agentsuite/orchestrator/guardrails.py` — a frozen `Guardrails(max_total_tokens,
+- **Decision:** `immortals/orchestrator/guardrails.py` — a frozen `Guardrails(max_total_tokens,
   max_wall_clock_s, max_nodes, max_agent_invocations)` (all `None` = no cap) + a `GuardrailState`
   the orchestrator checks **before** each node (deadline / node-count / per-agent invocation —
   the loop guard) and **after** each node (token accounting from `provenance.cost.total_tokens`,
@@ -494,7 +611,7 @@ between them through a **local SQLite + MCP** memory substrate.
   - Storage-agnostic callback **sinks** (`event_sink`, `artifact_sink`) the store satisfies —
     pro: orchestrator stays storage-free, in-memory runs unchanged, store is independently
     testable; con: two seams to wire at the call site (CLI).
-- **Decision:** `agentsuite/memory/store.py` `MemoryStore` over local SQLite — an **append-only
+- **Decision:** `immortals/memory/store.py` `MemoryStore` over local SQLite — an **append-only
   `events` table** (source of truth) + an `artifacts` table keyed by `(task_id, id)`. The
   orchestrator writes through `event_sink`/`artifact_sink` callbacks only; persistence is opt-in
   (`run --db PATH`). A run reconstructs by **folding the event log** (`reconstruct` / `replay`
@@ -514,12 +631,12 @@ between them through a **local SQLite + MCP** memory substrate.
   human-in-the-loop intake and a headless orchestrator coexist?
 - **Decision:** **managerAS is always the interactive, foreground driver** — it does intake
   (with `ask_user`) and final synthesis with the user, emits a `plan/v1`, and **invokes the
-  deterministic orchestrator as a tool** (MVP: `shell` → `python -m agentsuite run --plan-file
+  deterministic orchestrator as a tool** (MVP: `shell` → `python -m immortals run --plan-file
   …`; production: the orchestrator MCP server). **Only worker agents run headless**, spawned by
   the orchestrator. managerAS is never the headless one on the normal path.
 - **Consequences:** a headless managerAS (no intake, autonomous assumptions) is kept as a
   **future automation mode** for self-experimentation / patrecAS-driven runs, reusing the same
-  `python -m agentsuite run` seam. Build target: a CLI `run` command + managerAS wired to call
+  `python -m immortals run` seam. Build target: a CLI `run` command + managerAS wired to call
   it. Resolves open question Q2.
 
 ## 6. Open questions / next decisions
@@ -543,8 +660,8 @@ between them through a **local SQLite + MCP** memory substrate.
 4. ✅ **Phase 5 `--resume` + bounded parallelism** — `run --db --resume` skips already-completed
    nodes (AS-016); `run --max-workers N` overlaps independent nodes via a no-lock readiness
    scheduler (AS-017). Partial re-runs (`--from`/`--to`) remain.
-5. ✅ **Phase 2 MCP slice** — memory MCP server (`agentsuite/memory/mcp_server.py`) + `notes` KV
-   (schema v2); injected via `run --share-memory` + `AGENTSUITE_MEMORY_DB`. Verified live (default
+5. ✅ **Phase 2 MCP slice** — memory MCP server (`immortals/memory/mcp_server.py`) + `notes` KV
+   (schema v2); injected via `run --share-memory` + `IMMORTALS_MEMORY_DB`. Verified live (default
    agent). Custom-agent worker exposure needs a one-time persistent `copilot mcp add` (AS-021, R7).
 6. ✅ **Real usage/cost** — `CopilotRunner` parses `--output-format json` and reports
    `cost.total_tokens`; the `max_total_tokens` guardrail now bites on real runs (AS-018).

@@ -2,7 +2,7 @@
 
 > Phased, buildable roadmap for the adaptive-learning module. Order is locked by **[PAT-002]** to the
 > [AS-027] sequence **A → E → B → C → D**, i.e. increasing risk and machinery. Each phase has an
-> explicit **exit** (definition of done) consistent with the AgentSuite coderAS bar: code runs · tests
+> explicit **exit** (definition of done) consistent with the Immortals coderAS bar: code runs · tests
 > pass · result measured & logged · docs + provenance updated. Research grounding: `deep-dive.md`;
 > architecture: `architecture.md`; decisions: `decisions.md`.
 >
@@ -17,7 +17,7 @@
   it. LOCKED `<name>AS.md` naming.
 - [ ] Module skeleton `patrecAS/` (Python) with read-only access to `MemoryStore` / `DerivedMemory`
   via `config.py` paths (no new deps).
-- **Exit:** schemas validate round-trip; `patrecAS` is routable (`agentsuite route "learn my
+- **Exit:** schemas validate round-trip; `patrecAS` is routable (`immortals route "learn my
   preferences"` ranks it); zero new third-party dependencies; deterministic tests green.
 
 ## Phase A — Retrieval-based personalization (MVP, lowest risk) — *ships first*

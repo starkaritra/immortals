@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Immortals — run inspector</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel2: #1e222b; --line: #2a2f3a;
+    --fg: #e6e9ef; --muted: #9aa3b2; --accent: #6ea8fe; --ok: #4ec9a8;
+    --fail: #f06d6d; --run: #e0b341; --chip: #283041;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+    font: 14px/1.5 -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+  header { padding: 14px 20px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: baseline; gap: 14px; background: var(--panel); }
+  header h1 { font-size: 16px; margin: 0; letter-spacing: .3px; }
+  header .db { color: var(--muted); font-size: 12px; font-family: ui-monospace, monospace; }
+  nav { display: flex; gap: 4px; margin-left: auto; }
+  nav button { background: var(--chip); color: var(--fg); border: 1px solid var(--line);
+    padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  nav button.active { background: var(--accent); color: #06101f; border-color: var(--accent); }
+  main { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 53px); }
+  #list { border-right: 1px solid var(--line); overflow: auto; background: var(--panel); }
+  #detail { overflow: auto; padding: 18px 22px; }
+  .row { padding: 11px 16px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .row:hover { background: var(--panel2); }
+  .row.sel { background: var(--panel2); border-left: 3px solid var(--accent); padding-left: 13px; }
+  .row .tid { font-weight: 600; word-break: break-all; }
+  .row .meta { color: var(--muted); font-size: 12px; margin-top: 3px; }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px;
+    font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+  .badge.completed { background: rgba(78,201,168,.15); color: var(--ok); }
+  .badge.failed { background: rgba(240,109,109,.15); color: var(--fail); }
+  .badge.running { background: rgba(224,179,65,.15); color: var(--run); }
+  h2 { font-size: 15px; margin: 22px 0 10px; color: var(--fg);
+    border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+  h2:first-child { margin-top: 0; }
+  .node { display: inline-flex; flex-direction: column; gap: 2px; background: var(--panel2);
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; margin: 4px 6px 4px 0;
+    cursor: pointer; min-width: 140px; }
+  .node:hover { border-color: var(--accent); }
+  .node .nid { font-weight: 600; }
+  .node .nag { color: var(--muted); font-size: 12px; }
+  .edges { color: var(--muted); font-family: ui-monospace, monospace; font-size: 12px;
+    margin-top: 8px; white-space: pre-wrap; }
+  svg.dag { display: block; margin: 4px 0 8px; }
+  svg.dag .dnode { cursor: pointer; }
+  svg.dag .dnode rect:first-of-type { transition: stroke .12s; }
+  svg.dag .dnode:hover rect:first-of-type { stroke: var(--accent); }
+  svg.dag .dn-id { fill: var(--fg); font-size: 13px; font-weight: 600; }
+  svg.dag .dn-ag { fill: var(--muted); font-size: 11px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line);
+    vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  td.ts { color: var(--muted); font-family: ui-monospace, monospace; white-space: nowrap; }
+  td.ev { font-family: ui-monospace, monospace; }
+  pre { background: #0b0d12; border: 1px solid var(--line); border-radius: 8px; padding: 12px;
+    overflow: auto; font-size: 12.5px; max-height: 60vh; }
+  .controls { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+  input[type=text], input[type=number] { background: var(--panel2); border: 1px solid var(--line);
+    color: var(--fg); border-radius: 6px; padding: 7px 10px; font-size: 13px; }
+  input[type=text] { flex: 1; min-width: 200px; }
+  input[type=number] { width: 70px; }
+  button.go { background: var(--accent); color: #06101f; border: none; border-radius: 6px;
+    padding: 8px 16px; cursor: pointer; font-weight: 600; }
+  .hit { padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px;
+    background: var(--panel2); }
+  .hit .h { display: flex; gap: 10px; align-items: baseline; }
+  .hit .score { color: var(--accent); font-family: ui-monospace, monospace; }
+  .hit .txt { color: var(--muted); margin-top: 4px; }
+  .muted { color: var(--muted); }
+  .empty { color: var(--muted); padding: 40px; text-align: center; }
+  a.link { color: var(--accent); cursor: pointer; text-decoration: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>⚔ Immortals</h1>
+  <span class="db" id="dbpath">…</span>
+  <nav>
+    <button id="tab-runs" class="active" onclick="showTab('runs')">Runs</button>
+    <button id="tab-recall" onclick="showTab('recall')">Recall</button>
+  </nav>
+</header>
+<main>
+  <aside id="list"><div class="empty">loading…</div></aside>
+  <section id="detail"><div class="empty">Select a run.</div></section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const j = async (url) => {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+  return r.json();
+};
+const badge = (s) => `<span class="badge ${esc(s)}">${esc(s)}</span>`;
+let tab = "runs", selected = null;
+
+function showTab(t) {
+  tab = t;
+  $("tab-runs").classList.toggle("active", t === "runs");
+  $("tab-recall").classList.toggle("active", t === "recall");
+  if (t === "runs") loadRuns();
+  else loadRecallPane();
+}
+
+// ---- Runs list + detail -----------------------------------------------------------------
+async function loadRuns() {
+  try {
+    const data = await j("/api/runs");
+    $("dbpath").textContent = data.db || "";
+    if (!data.tasks.length) { $("list").innerHTML = `<div class="empty">No runs in this store.</div>`; return; }
+    $("list").innerHTML = data.tasks.map(t => `
+      <div class="row ${t.task_id === selected ? "sel" : ""}" onclick="openRun('${esc(t.task_id)}')">
+        <div class="tid">${esc(t.task_id)}</div>
+        <div class="meta">${badge(t.status)} · ${t.node_count} nodes ·
+          ${t.total_tokens.toLocaleString()} tok</div>
+      </div>`).join("");
+    if (!selected) $("detail").innerHTML = `<div class="empty">Select a run.</div>`;
+  } catch (e) { $("list").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
+async function openRun(taskId) {
+  selected = taskId;
+  loadRuns();
+  $("detail").innerHTML = `<div class="empty">loading ${esc(taskId)}…</div>`;
+  try {
+    const [run, graph] = await Promise.all([
+      j(`/api/runs/${encodeURIComponent(taskId)}`),
+      j(`/api/runs/${encodeURIComponent(taskId)}/graph`).catch(() => ({ nodes: [], edges: [] })),
+    ]);
+    renderRun(taskId, run, graph);
+  } catch (e) { $("detail").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
+function renderRun(taskId, run, graph) {
+  const arts = run.artifacts || {};
+  const artNodes = graph.nodes.filter(n => n.kind === "artifact");
+  const depEdges = graph.edges.filter(e => e.rel === "depends_on");
+
+  const ids = (artNodes.length ? artNodes.map(n => n.label) : Object.keys(arts));
+  const svg = dagSvg(taskId, ids, depEdges, arts);
+
+  const tokens = Object.values(arts).reduce((s, a) =>
+    s + (((a.provenance || {}).cost || {}).total_tokens || 0), 0);
+
+  const timeline = (run.events || []).map(ev => `
+    <tr><td class="ts">${esc((ev.ts || "").replace("T", " ").slice(0, 19))}</td>
+        <td class="ev">${esc(ev.type)}</td>
+        <td>${esc(ev.node_id || "")}${ev.agent ? " · " + esc(ev.agent) : ""}</td></tr>`).join("");
+
+  $("detail").innerHTML = `
+    <h2>${esc(taskId)} &nbsp; ${badge(run.status)}</h2>
+    <div class="muted">${Object.keys(arts).length} artifacts ·
+      ${(run.events || []).length} events · ${tokens.toLocaleString()} tokens
+      ${run.failed_node ? " · failed at <b>" + esc(run.failed_node) + "</b>" : ""}</div>
+
+    <h2>DAG <span class="muted">(data flows top → down · click a node)</span></h2>
+    ${svg || '<span class="muted">none</span>'}
+
+    <h2>Event timeline</h2>
+    <table><thead><tr><th>time</th><th>event</th><th>node / agent</th></tr></thead>
+      <tbody>${timeline}</tbody></table>`;
+}
+
+// Hand-rolled, dependency-free SVG of the run DAG: topological top→down layers from the
+// depends_on edges, drawn edges with arrowheads, nodes colored by artifact status.
+function dagSvg(taskId, ids, depEdges, arts) {
+  if (!ids.length) return "";
+  const strip = (s) => s.replace(/^artifact:/, "").split("/").pop();   // -> bare artifact id
+  const deps = {};                       // node -> [upstream nodes it depends on]
+  ids.forEach(id => (deps[id] = []));
+  depEdges.forEach(e => {
+    const from = strip(e.from), to = strip(e.to);   // `from` depends_on `to`
+    if (deps[from] && ids.includes(to)) deps[from].push(to);
+  });
+
+  // layer = longest depends_on chain to a root (memoized DFS, cycle-safe)
+  const layer = {}, seen = {};
+  const depth = (id) => {
+    if (layer[id] !== undefined) return layer[id];
+    if (seen[id]) return 0;              // guard against accidental cycles
+    seen[id] = true;
+    const d = deps[id].length ? 1 + Math.max(...deps[id].map(depth)) : 0;
+    return (layer[id] = d);
+  };
+  ids.forEach(depth);
+
+  const byLayer = {};
+  ids.forEach(id => (byLayer[layer[id]] ||= []).push(id));
+  const layers = Object.keys(byLayer).map(Number).sort((a, b) => a - b);
+
+  const NW = 168, NH = 52, HGAP = 34, VGAP = 78, PAD = 16;
+  const maxRow = Math.max(...layers.map(l => byLayer[l].length));
+  const W = Math.max(maxRow * (NW + HGAP) - HGAP + PAD * 2, NW + PAD * 2);
+  const H = layers.length * (NH + VGAP) - VGAP + PAD * 2;
+  const pos = {};                        // id -> {x,y} top-left
+  layers.forEach((l, li) => {
+    const row = byLayer[l];
+    const rowW = row.length * (NW + HGAP) - HGAP;
+    const x0 = (W - rowW) / 2;
+    row.forEach((id, i) => {
+      pos[id] = { x: x0 + i * (NW + HGAP), y: PAD + li * (NH + VGAP) };
+    });
+  });
+
+  const statusFill = (s) => s === "failed" ? "var(--fail)"
+    : s === "ok" ? "var(--ok)" : "var(--run)";
+
+  // edges: upstream(dep, higher) bottom-center → downstream(node) top-center, curved
+  const edgePaths = [];
+  ids.forEach(id => deps[id].forEach(up => {
+    const a = pos[up], b = pos[id];
+    if (!a || !b) return;
+    const x1 = a.x + NW / 2, y1 = a.y + NH, x2 = b.x + NW / 2, y2 = b.y;
+    const my = (y1 + y2) / 2;
+    edgePaths.push(`<path d="M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}"
+      fill="none" stroke="var(--line)" stroke-width="1.6" marker-end="url(#arrow)"/>`);
+  }));
+
+  const nodeEls = ids.map(id => {
+    const a = arts[id] || {};
+    const p = pos[id], c = statusFill(a.status);
+    return `<g class="dnode" onclick="openArtifact('${esc(taskId)}','${esc(id)}')"
+        transform="translate(${p.x},${p.y})">
+      <rect width="${NW}" height="${NH}" rx="9" fill="var(--panel2)" stroke="var(--line)"/>
+      <rect width="4" height="${NH}" rx="2" fill="${c}"/>
+      <text x="14" y="21" class="dn-id">${esc(id)}</text>
+      <text x="14" y="39" class="dn-ag">${esc(a.produced_by || "")} · ${esc(a.status || "?")}</text>
+    </g>`;
+  }).join("");
+
+  return `<svg class="dag" viewBox="0 0 ${W} ${H}" width="100%"
+      style="max-width:${W}px;height:${H}px" xmlns="http://www.w3.org/2000/svg">
+    <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7"
+      markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--line)"/></marker></defs>
+    ${edgePaths.join("")}${nodeEls}</svg>`;
+}
+
+async function openArtifact(taskId, artId) {
+  try {
+    const a = await j(`/api/artifacts/${encodeURIComponent(taskId)}/${encodeURIComponent(artId)}`);
+    const prov = a.provenance || {};
+    $("detail").innerHTML = `
+      <h2><a class="link" onclick="openRun('${esc(taskId)}')">← ${esc(taskId)}</a>
+        &nbsp;/&nbsp; ${esc(artId)} &nbsp; ${badge(a.status)}</h2>
+      <div class="muted">produced by <b>${esc(a.produced_by)}</b> · type ${esc(a.type)}
+        · model ${esc(prov.model || "?")}
+        · ${(((prov.cost || {}).total_tokens) || 0).toLocaleString()} tokens
+        ${prov.inputs && prov.inputs.length ? " · inputs: " + esc(prov.inputs.join(", ")) : ""}</div>
+      <h2>content</h2>
+      <pre>${esc(JSON.stringify(a.content, null, 2))}</pre>
+      <h2>provenance</h2>
+      <pre>${esc(JSON.stringify(prov, null, 2))}</pre>`;
+  } catch (e) { $("detail").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
+// ---- Recall -----------------------------------------------------------------------------
+function loadRecallPane() {
+  $("list").innerHTML = `<div class="row" style="cursor:default">
+    <div class="tid">Semantic recall</div>
+    <div class="meta">Search artifacts &amp; facts across all runs.</div></div>
+    <div class="row" onclick="showGraph()"><div class="tid">⛓ Knowledge graph</div>
+    <div class="meta">View the whole-store graph →</div></div>`;
+  $("detail").innerHTML = `
+    <h2>Recall</h2>
+    <div class="controls">
+      <input type="text" id="q" placeholder="e.g. explain eigenvalues" onkeydown="if(event.key==='Enter')runRecall()" />
+      <input type="number" id="top" value="5" min="1" max="50" title="max hits" />
+      <button class="go" onclick="runRecall()">Search</button>
+    </div>
+    <div id="hits"><div class="empty">Enter a query.</div></div>`;
+  setTimeout(() => $("q") && $("q").focus(), 0);
+}
+
+async function runRecall() {
+  const q = $("q").value.trim(); if (!q) return;
+  const top = $("top").value || 5;
+  $("hits").innerHTML = `<div class="empty">searching…</div>`;
+  try {
+    const data = await j(`/api/recall?q=${encodeURIComponent(q)}&top=${top}`);
+    if (!data.hits.length) { $("hits").innerHTML = `<div class="empty">No hits.</div>`; return; }
+    $("hits").innerHTML = data.hits.map(h => `
+      <div class="hit"><div class="h">
+        <span class="score">${h.score.toFixed(4)}</span>
+        <b>${esc(h.ref_id)}</b>
+        <span class="muted">${esc(h.kind)}${h.agent ? " · " + esc(h.agent) : ""}
+          ${h.task_id ? " · " : ""}${h.task_id ? `<a class="link" onclick="openRunFromRecall('${esc(h.task_id)}')">${esc(h.task_id)}</a>` : ""}</span>
+      </div><div class="txt">${esc(h.text)}</div></div>`).join("");
+  } catch (e) { $("hits").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
+function openRunFromRecall(taskId) { showTab("runs"); openRun(taskId); }
+
+async function showGraph() {
+  $("detail").innerHTML = `<div class="empty">loading graph…</div>`;
+  try {
+    const g = await j(`/api/graph`);
+    const byKind = {};
+    g.nodes.forEach(n => { (byKind[n.kind] ||= []).push(n); });
+    const nodes = Object.entries(byKind).map(([k, ns]) =>
+      `<h2>${esc(k)} <span class="muted">(${ns.length})</span></h2><div>${
+        ns.map(n => `<div class="node"><span class="nid">${esc(n.label || n.key)}</span>
+          <span class="nag">${esc(n.task_id || "")}</span></div>`).join("")}</div>`).join("");
+    const edges = g.edges.map(e =>
+      `${esc(e.from)}  —${esc(e.rel)}→  ${esc(e.to)}`).join("\n");
+    $("detail").innerHTML = `<h2>Knowledge graph <span class="muted">(${g.nodes.length} nodes, ${g.edges.length} edges)</span></h2>
+      ${nodes}<h2>edges</h2><div class="edges">${esc(edges) || "none"}</div>`;
+  } catch (e) { $("detail").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
+loadRuns();
+</script>
+</body>
+</html>

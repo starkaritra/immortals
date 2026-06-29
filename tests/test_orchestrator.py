@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from agentsuite.contracts.models import Plan, Node, Edge, Artifact
-from agentsuite.orchestrator import Orchestrator
-from agentsuite.orchestrator.runner import PlanError
-from agentsuite.registry import Registry
-from agentsuite.runners import MockRunner
-from agentsuite.runners.base import AgentRunner, RunRequest, RunnerError
+from immortals.contracts.models import Plan, Node, Edge, Artifact
+from immortals.orchestrator import Orchestrator
+from immortals.orchestrator.runner import PlanError
+from immortals.registry import Registry
+from immortals.runners import MockRunner
+from immortals.runners.base import AgentRunner, RunRequest, RunnerError
 
 
 @pytest.fixture

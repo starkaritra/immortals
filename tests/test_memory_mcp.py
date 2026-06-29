@@ -10,11 +10,11 @@ from pathlib import Path
 
 import pytest
 
-from agentsuite.contracts.models import Artifact
-from agentsuite.memory import MemoryStore, SCHEMA_VERSION
-from agentsuite.memory import mcp_server as srv
-from agentsuite.runners import CopilotRunner
-from agentsuite.runners.base import RunRequest
+from immortals.contracts.models import Artifact
+from immortals.memory import MemoryStore, SCHEMA_VERSION
+from immortals.memory import mcp_server as srv
+from immortals.runners import CopilotRunner
+from immortals.runners.base import RunRequest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -74,7 +74,7 @@ def test_v1_store_migrates_to_v2_notes(tmp_path):
 
 def test_initialize_and_tools_list(store):
     init = srv.dispatch(store, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
-    assert init["result"]["serverInfo"]["name"] == "agentsuite-memory"
+    assert init["result"]["serverInfo"]["name"] == "immortals-memory"
     listed = srv.dispatch(store, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
     names = {t["name"] for t in listed["result"]["tools"]}
     assert names == {
@@ -143,17 +143,17 @@ def test_runner_omits_mcp_config_when_unset():
 def test_server_resolves_db_from_arg_and_env(monkeypatch):
     assert srv._resolve_db(["--db", "C:/x.db"]) == "C:/x.db"
     assert srv._resolve_db(["--db=C:/y.db"]) == "C:/y.db"
-    monkeypatch.setenv("AGENTSUITE_MEMORY_DB", "C:/from-env.db")
+    monkeypatch.setenv("IMMORTALS_MEMORY_DB", "C:/from-env.db")
     assert srv._resolve_db([]) == "C:/from-env.db"
-    monkeypatch.delenv("AGENTSUITE_MEMORY_DB", raising=False)
+    monkeypatch.delenv("IMMORTALS_MEMORY_DB", raising=False)
     # Falls back to a stable default (so a persistently-registered server never errors).
     fallback = srv._resolve_db([])
     assert fallback.endswith("memory.db") and ".copilot" in fallback
 
 
 def test_runner_stores_env_extra():
-    runner = CopilotRunner(env_extra={"AGENTSUITE_MEMORY_DB": "C:/run.db"})
-    assert runner.env_extra["AGENTSUITE_MEMORY_DB"] == "C:/run.db"
+    runner = CopilotRunner(env_extra={"IMMORTALS_MEMORY_DB": "C:/run.db"})
+    assert runner.env_extra["IMMORTALS_MEMORY_DB"] == "C:/run.db"
 
 
 # -- persistent registration command -------------------------------------------------------
@@ -162,19 +162,19 @@ def test_memory_register_preserves_other_servers(tmp_path):
     cfg = tmp_path / "mcp-config.json"
     cfg.write_text(json.dumps({"mcpServers": {"kgraph": {"type": "local", "command": "python"}}}),
                    encoding="utf-8")
-    from agentsuite.cli import main as cli_main
+    from immortals.cli import main as cli_main
     rc = cli_main(["memory", "register", "--config-path", str(cfg)])
     assert rc == 0
     data = json.loads(cfg.read_text())
     assert "kgraph" in data["mcpServers"]                      # untouched
-    entry = data["mcpServers"]["agentsuite-memory"]
-    assert entry["args"] == ["-m", "agentsuite.memory.mcp_server"]
+    entry = data["mcpServers"]["immortals-memory"]
+    assert entry["args"] == ["-m", "immortals.memory.mcp_server"]
     assert entry["tools"] == ["*"]
 
 
 def test_memory_register_then_unregister(tmp_path, capsys):
     cfg = tmp_path / "mcp-config.json"
-    from agentsuite.cli import main as cli_main
+    from immortals.cli import main as cli_main
     cli_main(["memory", "register", "--config-path", str(cfg)])
     capsys.readouterr()
     cli_main(["memory", "status", "--config-path", str(cfg)])
@@ -199,12 +199,12 @@ def test_mcp_server_over_stdio(tmp_path):
     ]
     stdin = "\n".join(json.dumps(r) for r in requests) + "\n"
     proc = subprocess.run(
-        [sys.executable, "-m", "agentsuite.memory.mcp_server", "--db", db],
+        [sys.executable, "-m", "immortals.memory.mcp_server", "--db", db],
         input=stdin, capture_output=True, text=True, timeout=60, cwd=str(REPO_ROOT),
     )
     responses = [json.loads(line) for line in proc.stdout.splitlines() if line.strip()]
     by_id = {r["id"]: r for r in responses}
-    assert by_id[1]["result"]["serverInfo"]["name"] == "agentsuite-memory"
+    assert by_id[1]["result"]["serverInfo"]["name"] == "immortals-memory"
     assert {t["name"] for t in by_id[2]["result"]["tools"]} >= {"memory_put_note", "memory_get_note"}
     # The note written in request 3 is read back in request 4 — proving shared, persisted memory.
     note_text = by_id[4]["result"]["content"][0]["text"]

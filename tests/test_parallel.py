@@ -8,13 +8,13 @@ import time
 
 import pytest
 
-from agentsuite.cli import main
-from agentsuite.contracts.models import Artifact, Node, Plan
-from agentsuite.memory import MemoryStore
-from agentsuite.orchestrator import Orchestrator
-from agentsuite.registry import Registry
-from agentsuite.runners import MockRunner
-from agentsuite.runners.base import AgentRunner, RunRequest
+from immortals.cli import main
+from immortals.contracts.models import Artifact, Node, Plan
+from immortals.memory import MemoryStore
+from immortals.orchestrator import Orchestrator
+from immortals.registry import Registry
+from immortals.runners import MockRunner
+from immortals.runners.base import AgentRunner, RunRequest
 
 
 @pytest.fixture
@@ -121,7 +121,7 @@ def test_parallel_persists_to_store(registry):
 
 def test_parallel_guardrail_node_cap(registry):
     # Cap node executions at 2 across the diamond -> run fails once the cap is hit.
-    from agentsuite.orchestrator import Guardrails
+    from immortals.orchestrator import Guardrails
 
     orch = Orchestrator(runner=MockRunner(), registry=registry, max_workers=4,
                         guardrails=Guardrails(max_nodes=2))

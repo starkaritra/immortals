@@ -1,4 +1,4 @@
-# AgentSuite — Architecture
+# Immortals — Architecture
 
 ## North star
 A single user-facing **managerAS** takes a task (structured or vague), decomposes it into a
@@ -18,7 +18,7 @@ forked orchestrator code.
 | Role | Responsibility | Determinism |
 |---|---|---|
 | **managerAS** (planner/router/aggregator) | The *only* user-facing agent. Turns a task into a validated plan; re-plans on escalation; synthesizes the final answer. | LLM policy |
-| **Orchestrator** (`agentsuite/`) | Validates the plan, executes the DAG, enforces seam contracts, runs guardrails, mediates all I/O, escalates to the manager only at defined decision points. | Deterministic mechanism |
+| **Orchestrator** (`immortals/`) | Validates the plan, executes the DAG, enforces seam contracts, runs guardrails, mediates all I/O, escalates to the manager only at defined decision points. | Deterministic mechanism |
 | **Worker agents** (`~/.copilot/agents/*.md`) | Do the actual domain work; read declared inputs, write one typed artifact. | LLM, sandboxed per call |
 | **Memory** (local SQLite + MCP) | Source-of-truth event log; derived graph + vector + KV read models; per-agent + universal stores. | Deterministic substrate |
 

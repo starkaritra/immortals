@@ -1,11 +1,11 @@
-"""Tests for the AgentSuite JSON contracts and ergonomic models."""
+"""Tests for the Immortals JSON contracts and ergonomic models."""
 
 from __future__ import annotations
 
 import pytest
 
-from agentsuite.contracts import validate, is_valid, ContractError, validate_self_described
-from agentsuite.contracts.models import Plan, Node, Edge, Artifact
+from immortals.contracts import validate, is_valid, ContractError, validate_self_described
+from immortals.contracts.models import Plan, Node, Edge, Artifact
 
 
 # --- fixtures -------------------------------------------------------------------------
