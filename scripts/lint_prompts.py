@@ -50,8 +50,13 @@ VENDORED_SKILLS = frozenset({
 WHEN_SIGNALS = ("when to use", "use when", "use this", "triggers on", "trigger phrases")
 NEGATIVE_SIGNALS = ("do not use", "don't use", "not for", "skip ", "do NOT")
 
-# Standard SKILL.md sections we want (structure check). Matched case-insensitively.
-SKILL_SECTIONS = ("when to use", "guardrail", "handoff")
+# Standard SKILL.md section groups (structure check). Each tuple is a set of accepted
+# synonyms; a section is "present" if any synonym appears. Matched case-insensitively.
+SKILL_SECTION_GROUPS = {
+    "when-to-use": ("when to use", "use when", "use this skill", "output routing"),
+    "guardrails": ("guardrail", "constraint", "red line", "safety", "do not", "hard rule"),
+    "handoff": ("handoff", "hand off", "hand-off"),
+}
 
 
 @dataclass
@@ -158,12 +163,12 @@ def lint_file(path: Path, kind: str, expected_name: str, vendored: bool = False)
             "consider moving depth into references/ (Arm B)"
         )
 
-    # Structure: standard SKILL.md sections (native skills only; vendored returned above).
+    # Structure: standard SKILL.md section groups (native skills only; vendored returned above).
     if kind == "skill":
         body_low = body.lower()
-        for sec in SKILL_SECTIONS:
-            if sec not in body_low:
-                r.warnings.append(f"missing a '{sec}' section (structure)")
+        for label, syns in SKILL_SECTION_GROUPS.items():
+            if not any(s in body_low for s in syns):
+                r.warnings.append(f"missing a '{label}' section (structure)")
 
     return r
 

@@ -53,6 +53,14 @@ and see the consequence — intuition before formalism.
 - Does it load and run offline from a file:// path?
 - Would a novice grasp the idea in <60s of play?
 
+## Guardrails
+- **Model must be honest.** Never fake a curve, animation, or result to look cleaner than the
+  real math/physics. If you approximate, label it on-screen.
+- **No hidden network dependency** the widget can't run without — it must work offline from a
+  `file://` path.
+- **Don't overload.** If you're adding a fourth knob, stop and ask whether it serves the one
+  idea; extra controls usually hurt intuition.
+
 ## Handoff
 **teachAS** owns the pedagogy (diagnosis, sequencing, checks-for-understanding); this skill
 produces the explorable artifact it embeds in a lesson. For static talk visuals, hand to

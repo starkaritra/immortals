@@ -228,3 +228,7 @@ narration to **presentAS** with this brief:
   ask what to cut.
 - **Problem ≠ Impact** — enforce every time.
 - **Script only.** Decks belong to presentAS. Never spin up a competing deck toolchain here.
+## When to use & handoff
+Use when you need the spoken words for a timed pitch/demo/launch video. Owned by **presentAS**.
+It produces the SCRIPT only — hand off to presentAS's YAML->PPTX+reveal.js pipeline to build
+the actual slides, and to prep-presentation for live-delivery rehearsal.

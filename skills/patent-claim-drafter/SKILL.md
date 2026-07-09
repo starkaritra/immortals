@@ -66,6 +66,15 @@ Design-around gaps: <where a competitor slips through> + proposed blocking claim
 §101/§112 flags:  <risks + fixes>
 ```
 
+## Guardrails
+- **Not legal advice.** This produces attorney-reviewable drafts, never filings or a legal
+  opinion. Say so explicitly in any output.
+- **Never assert patentability without a search.** Pair every claim set with the
+  **prior-art-search** skill; a claim is only as strong as the art it clears.
+- **Don't over-narrow to look novel.** Adding limitations to dodge prior art hands competitors
+  a design-around — flag the trade-off instead of silently narrowing.
+- **Flag unsupported claim terms** — any element not described in the spec is a §112 risk.
+
 ## Handoff
 Pairs with **prior-art-search** (novelty/obviousness grounding) and the **novelty-log**
 (claim differentiation). patentAS owns filing strategy; a registered practitioner reviews.

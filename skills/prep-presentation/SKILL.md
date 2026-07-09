@@ -125,3 +125,14 @@ with no vision/ask · hybrid tech failed · froze on a hostile question · nerve
 Wall-of-text slides · reading verbatim · no core message · mechanics before motivation ·
 flat ending · silent demo · cramming · memorizing the whole script · ignoring the remote half ·
 inventing metrics · surviving Q&A instead of commanding it.
+## Guardrails
+- **Never fabricate a stat or result** to strengthen the talk — every claimed number must
+  trace to the user's real work or a cited source. A demo that overstates is worse than none.
+- **Respect the time limit** — an over-length talk is a failure mode; rehearse to the clock.
+- **Don't bury the core message** — if a slide doesn't serve the one-sentence takeaway, cut it.
+- Preparation guidance only; this skill does not build the deck (that's presentAS).
+
+## When to use & handoff
+Use when preparing to deliver a specific upcoming talk/presentation. Owned by **prepAS**. To
+actually build the slide deck, hand off to **presentAS**; for a timed spoken pitch script,
+hand off to the present-pitch-script skill; for interview prep use prep-interview.

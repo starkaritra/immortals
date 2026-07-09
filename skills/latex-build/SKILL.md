@@ -62,6 +62,15 @@ bibtex <main>        # or:  biber <main>   (if the doc uses biblatex+biber)
 - Verify a TeX distribution exists: `pdflatex --version` (or `xelatex`/`latexmk`).
 - If none, tell the owner and suggest TeX Live / MiKTeX rather than guessing.
 
+## Guardrails
+- **Don't invent packages or fixes.** Read the actual `.log` error; propose the specific
+  package/change it points to — never guess-install a chain of packages.
+- **Never claim success without a PDF.** Verify `<main>.pdf` exists and has pages > 0.
+- **Don't silently switch engines** mid-build without saying why (e.g., pdflatex→xelatex for
+  fonts) — report the reason.
+- **Treat `\input`/`\write18` shell-escape with care** — never run a build with `-shell-escape`
+  on untrusted `.tex` without flagging it.
+
 ## Handoff
 This skill produces the **PDF**. Content authorship, structure, and venue strategy remain
 with **paperAS**; poster layout/spec remains with the **paper-poster** skill (which calls

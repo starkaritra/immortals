@@ -75,3 +75,8 @@ Wrap at ~72 cols. Reference decisions.md anchors or issues where relevant.>
 - Never invent an author identity; read it from `git config`.
 - If a pre-commit hook fails, fix the cause — do not blindly `--no-verify` unless the owner
   asked to skip a known-noisy hook.
+
+## Handoff
+This skill owns the commit/publish boundary. The actual code changes come from **coderAS**
+(or the owner); this skill records and publishes them. On approval to publish, it produces
+the pre-publish report coderAS's rule 19 requires; the owner gives the final go-ahead.

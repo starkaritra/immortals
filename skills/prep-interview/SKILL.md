@@ -139,3 +139,7 @@ rest, no new topics.
 Memorizing answers instead of reasoning · over-claiming / inventing numbers · "we" instead of
 "I" · unstructured rambling · designing before scoping · silent coding · low/high altitude
 mismatch · no questions for them · cramming breadth the night before instead of consolidating.
+## When to use & handoff
+Use when preparing for a specific upcoming interview/PPO/loop. Owned by **prepAS**. For
+presentation/talk prep hand off to prep-presentation; for tailoring the resume you'll bring,
+hand off to resume-optimizer. Instance facts live in the per-scenario tracker, not here.
