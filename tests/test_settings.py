@@ -66,6 +66,18 @@ def test_bad_adapter_rejected(client):
     assert client.put("/api/settings/providers", json={"id": "z", "adapter": "nope"}).status_code == 422
 
 
+def test_connection_test_reports_missing_key(client):
+    # anthropic provider with no key + no env key -> the test call fails gracefully (ok:false).
+    import os
+
+    os.environ.pop("ANTHROPIC_API_KEY", None)
+    client.put("/api/settings/providers", json={"id": "anthropic", "adapter": "anthropic",
+                                                "model": "claude-3-5-haiku-latest"})
+    res = client.post("/api/settings/providers/anthropic/test").json()
+    assert res["ok"] is False
+    assert "ANTHROPIC_API_KEY" in res["error"]
+
+
 def test_build_provider_from_config(tmp_path, monkeypatch):
     monkeypatch.setenv("IMMORTALS_SETTINGS", str(tmp_path / "s.json"))
     store = SettingsStore()

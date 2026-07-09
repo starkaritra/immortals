@@ -159,6 +159,32 @@ def build_provider(store: SettingsStore, provider_ref: str) -> tuple[ModelProvid
     return get_provider(adapter, **kwargs), cfg.get("model")
 
 
+def test_provider(store: SettingsStore, provider_id: str) -> dict[str, Any]:
+    """Make a tiny live call to validate a provider's key/endpoint. Never raises."""
+    import time
+
+    from immortals.runners.providers import ChatMessage
+
+    try:
+        provider, model = build_provider(store, provider_id)
+    except Exception as exc:  # noqa: BLE001 - surface as a result, not a 500
+        return {"ok": False, "error": str(exc)}
+    started = time.monotonic()
+    try:
+        resp = provider.complete(
+            system="You are a connectivity health check.",
+            messages=[ChatMessage(role="user", content="Reply with the single word: ok")],
+            model=model, temperature=0.0, max_tokens=5,
+        )
+    except Exception as exc:  # noqa: BLE001 - missing key/SDK, HTTP/network, bad endpoint
+        return {"ok": False, "error": str(exc)}
+    return {
+        "ok": True, "model": resp.model or model or provider.default_model,
+        "latency_ms": round((time.monotonic() - started) * 1000),
+        "sample": (resp.text or "").strip()[:80],
+    }
+
+
 def attach_settings_api(app, store: SettingsStore) -> None:
     @app.get("/api/settings/catalog")
     def catalog() -> dict[str, Any]:
@@ -176,3 +202,7 @@ def attach_settings_api(app, store: SettingsStore) -> None:
     def delete_provider(provider_id: str) -> dict[str, Any]:
         store.delete(provider_id)
         return {"ok": True}
+
+    @app.post("/api/settings/providers/{provider_id}/test")
+    def test_endpoint(provider_id: str) -> dict[str, Any]:
+        return test_provider(store, provider_id)
