@@ -62,13 +62,24 @@ _ADAPTERS = {"anthropic", "openai", "gemini", "ollama"}
 # One-click local models (pulled via Ollama, which downloads + serves GGUF from its registry or
 # directly from Hugging Face via `hf.co/<user>/<repo>`).
 SUGGESTED_LOCAL: list[dict[str, Any]] = [
-    {"name": "qwen2.5", "label": "Qwen2.5 7B", "size": "~4.7 GB", "note": "best small all-rounder + tools"},
-    {"name": "qwen2.5-coder", "label": "Qwen2.5-Coder 7B", "size": "~4.7 GB", "note": "coding"},
-    {"name": "llama3.1", "label": "Llama 3.1 8B", "size": "~4.9 GB", "note": "strong general"},
-    {"name": "glm4", "label": "GLM-4 9B", "size": "~5.5 GB", "note": "multilingual"},
-    {"name": "gemma2", "label": "Gemma 2 9B", "size": "~5.4 GB", "note": "Google"},
-    {"name": "phi3.5", "label": "Phi-3.5 mini 3.8B", "size": "~2.2 GB", "note": "tiny + fast"},
-    {"name": "qwen2.5:3b", "label": "Qwen2.5 3B", "size": "~1.9 GB", "note": "very small"},
+    {"name": "qwen2.5:7b", "label": "Qwen2.5 7B", "size": "~4.7 GB", "note": "best small all-rounder + tools"},
+    {"name": "qwen2.5:3b", "label": "Qwen2.5 3B", "size": "~1.9 GB", "note": "efficient, decent tools"},
+    {"name": "qwen2.5:1.5b", "label": "Qwen2.5 1.5B", "size": "~1.0 GB", "note": "very light"},
+    {"name": "qwen2.5-coder:7b", "label": "Qwen2.5-Coder 7B", "size": "~4.7 GB", "note": "top small coder"},
+    {"name": "qwen2.5-coder:1.5b", "label": "Qwen2.5-Coder 1.5B", "size": "~1.0 GB", "note": "light coder"},
+    {"name": "llama3.1:8b", "label": "Llama 3.1 8B", "size": "~4.9 GB", "note": "strong general + tools"},
+    {"name": "llama3.2:3b", "label": "Llama 3.2 3B", "size": "~2.0 GB", "note": "efficient general"},
+    {"name": "llama3.2:1b", "label": "Llama 3.2 1B", "size": "~1.3 GB", "note": "tiny / edge"},
+    {"name": "gemma2:9b", "label": "Gemma 2 9B", "size": "~5.4 GB", "note": "Google, strong"},
+    {"name": "gemma2:2b", "label": "Gemma 2 2B", "size": "~1.6 GB", "note": "tiny, high quality"},
+    {"name": "phi3.5", "label": "Phi-3.5-mini 3.8B", "size": "~2.2 GB", "note": "reasoning-dense, fast"},
+    {"name": "phi4", "label": "Phi-4 14B", "size": "~9.1 GB", "note": "punches up, reasoning"},
+    {"name": "glm4:9b", "label": "GLM-4 9B", "size": "~5.5 GB", "note": "multilingual + tools"},
+    {"name": "mistral-nemo", "label": "Mistral-Nemo 12B", "size": "~7.1 GB", "note": "long context + tools"},
+    {"name": "deepseek-r1:7b", "label": "DeepSeek-R1 7B", "size": "~4.7 GB", "note": "reasoning (distill)"},
+    {"name": "deepseek-r1:1.5b", "label": "DeepSeek-R1 1.5B", "size": "~1.1 GB", "note": "tiny reasoning"},
+    {"name": "granite3.1-dense:8b", "label": "Granite 3.1 8B", "size": "~4.9 GB", "note": "IBM, tools / RAG"},
+    {"name": "smollm2:1.7b", "label": "SmolLM2 1.7B", "size": "~1.8 GB", "note": "ultra-light chat"},
 ]
 
 

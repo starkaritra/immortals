@@ -91,7 +91,8 @@ def test_ollama_status_shape(client):
 def test_ollama_recommended(client):
     data = client.get("/api/settings/ollama/recommended").json()
     names = {m["name"] for m in data["models"]}
-    assert "qwen2.5" in names and "llama3.1" in names
+    assert "qwen2.5:7b" in names and "llama3.1:8b" in names
+    assert len(data["models"]) >= 12
 
 
 def test_build_provider_from_config(tmp_path, monkeypatch):
