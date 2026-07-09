@@ -76,3 +76,7 @@ python assets/analyze.py results.json --metric latency --group arm --control A -
 ```
 The `--seed`/`--iters` are logged as provenance. SciPy/matplotlib are optional — the script
 degrades gracefully without them.
+
+## Examples
+For a concrete good-vs-bad analysis report, load `references/examples.md` on demand — it is not
+part of this always-loaded body.

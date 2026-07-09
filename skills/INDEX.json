@@ -37,11 +37,13 @@
       "argument_hint": "Point me at the .bib file (and the .tex that cites it, if you want claim-matching)",
       "requires": [],
       "path": "skills/citation-verify/SKILL.md",
-      "references": [],
+      "references": [
+        "references/examples.md"
+      ],
       "assets": [
         "assets/resolve_refs.py"
       ],
-      "body_tokens_est": 755,
+      "body_tokens_est": 791,
       "vendored": false
     },
     {
@@ -52,11 +54,13 @@
       "argument_hint": "Point me at the results file (CSV/JSON) and name the metric + the control/experiment columns",
       "requires": [],
       "path": "skills/data-analysis-plots/SKILL.md",
-      "references": [],
+      "references": [
+        "references/examples.md"
+      ],
       "assets": [
         "assets/analyze.py"
       ],
-      "body_tokens_est": 822,
+      "body_tokens_est": 858,
       "vendored": false
     },
     {
@@ -106,9 +110,11 @@
       "argument_hint": "Tell me the scope to commit and whether this is local-only or headed to a remote",
       "requires": [],
       "path": "skills/git-pr-workflow/SKILL.md",
-      "references": [],
+      "references": [
+        "references/examples.md"
+      ],
       "assets": [],
-      "body_tokens_est": 804,
+      "body_tokens_est": 848,
       "vendored": false
     },
     {

@@ -71,3 +71,7 @@ python assets/resolve_refs.py refs.bib --json    # machine-readable
 ```
 Use the script for the mechanical resolution pass, then apply human judgment for the
 claim–citation match (step 4), which the script does not attempt.
+
+## Examples
+For a concrete good-vs-bad verification report, load `references/examples.md` on demand — it is
+not part of this always-loaded body.

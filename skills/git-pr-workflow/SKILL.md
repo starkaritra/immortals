@@ -80,3 +80,7 @@ Wrap at ~72 cols. Reference decisions.md anchors or issues where relevant.>
 This skill owns the commit/publish boundary. The actual code changes come from **coderAS**
 (or the owner); this skill records and publishes them. On approval to publish, it produces
 the pre-publish report coderAS's rule 19 requires; the owner gives the final go-ahead.
+
+## Examples
+For a concrete good commit message and pre-publish report (and what to avoid), load
+`references/examples.md` on demand — it is not part of this always-loaded body.
