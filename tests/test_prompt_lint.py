@@ -51,3 +51,15 @@ def test_every_skill_has_owner_and_version():
         if "owner-agent:" not in text or "version:" not in text:
             missing.append(name)
     assert not missing, f"native skills missing owner-agent/version: {missing}"
+
+
+def test_skill_index_is_fresh():
+    """skills/INDEX.json must match a fresh generation (the lazy-load directory can't drift)."""
+    spec = importlib.util.spec_from_file_location(
+        "gen_skill_index", REPO / "scripts" / "gen_skill_index.py")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+    fresh = mod.dumps(mod.build_index())
+    on_disk = (REPO / "skills" / "INDEX.json").read_text(encoding="utf-8")
+    assert fresh == on_disk, "skills/INDEX.json is stale — run: python scripts/gen_skill_index.py"

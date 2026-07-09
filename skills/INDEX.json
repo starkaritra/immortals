@@ -1,0 +1,399 @@
+{
+  "schema": "skill-index/v1",
+  "generated_by": "scripts/gen_skill_index.py",
+  "count": 30,
+  "skills": [
+    {
+      "name": "brand-guidelines",
+      "description": "Applies Anthropic's official brand colors and typography to any sort of artifact that may benefit from having Anthropic's look-and-feel. Use it when brand colors or style guidelines, visual formatting, or company design standards apply.",
+      "owner_agent": null,
+      "version": null,
+      "argument_hint": null,
+      "path": "skills/brand-guidelines/SKILL.md",
+      "references": [],
+      "assets": [],
+      "body_tokens_est": 478,
+      "vendored": true
+    },
+    {
+      "name": "canvas-design",
+      "description": "Create beautiful visual art in .png and .pdf documents using design philosophy. You should use this skill when the user asks to create a poster, piece of art, design, or other static piece. Create original visual designs, never copying existing artists' work to avoid copyright violations.",
+      "owner_agent": null,
+      "version": null,
+      "argument_hint": null,
+      "path": "skills/canvas-design/SKILL.md",
+      "references": [],
+      "assets": [],
+      "body_tokens_est": 2891,
+      "vendored": true
+    },
+    {
+      "name": "citation-verify",
+      "description": "paperAS-family skill for verifying that every citation in a paper is real, correct, and actually supports the claim it's attached to. Triggers on: \"check my citations\", \"verify my references\", \"are these citations real\", \"fix my bibliography\", \"do my refs match the claims\", \"clean up my .bib\". Owns the durable craft of resolving each reference against an authoritative source (DOI/arXiv/Crossref/DBLP), catching hallucinated or malformed entries, and flagging claim–citation mismatches. Use before submission or whenever a reference list needs an integrity pass. Do NOT use it to write new prose.",
+      "owner_agent": "paperAS",
+      "version": "1.0.0",
+      "argument_hint": "Point me at the .bib file (and the .tex that cites it, if you want claim-matching)",
+      "path": "skills/citation-verify/SKILL.md",
+      "references": [],
+      "assets": [
+        "assets/resolve_refs.py"
+      ],
+      "body_tokens_est": 755,
+      "vendored": false
+    },
+    {
+      "name": "data-analysis-plots",
+      "description": "experimentAS-family skill for turning experiment/eval results into rigorous statistics and publication-quality plots. Triggers on: \"analyze these results\", \"plot my metrics\", \"is this difference significant\", \"make a bar chart with error bars\", \"compare control vs experiment\", \"effect size\", \"confidence interval\", \"variance over seeds\". Owns the durable craft of computing effect sizes + CIs (never a bare p-value), aggregating over seeds/runs, correcting for multiplicity, and rendering clear figures. Use when experiment output needs analysis or visualization. Do NOT use it to design the experiment — that's experimentAS.",
+      "owner_agent": "experimentAS",
+      "version": "1.0.0",
+      "argument_hint": "Point me at the results file (CSV/JSON) and name the metric + the control/experiment columns",
+      "path": "skills/data-analysis-plots/SKILL.md",
+      "references": [],
+      "assets": [
+        "assets/analyze.py"
+      ],
+      "body_tokens_est": 822,
+      "vendored": false
+    },
+    {
+      "name": "doc-coauthoring",
+      "description": "Guide users through a structured workflow for co-authoring documentation. Use when user wants to write documentation, proposals, technical specs, decision docs, or similar structured content. This workflow helps users efficiently transfer context, refine content through iteration, and verify the doc works for readers. Trigger when user mentions writing docs, creating proposals, drafting specs, or similar documentation tasks.",
+      "owner_agent": null,
+      "version": null,
+      "argument_hint": null,
+      "path": "skills/doc-coauthoring/SKILL.md",
+      "references": [],
+      "assets": [],
+      "body_tokens_est": 3835,
+      "vendored": true
+    },
+    {
+      "name": "docx",
+      "description": "Use this skill whenever the user wants to create, read, edit, or manipulate Word documents (.docx files). Triggers include: any mention of 'Word doc', 'word document', '.docx', or requests to produce professional documents with formatting like tables of contents, headings, page numbers, or letterheads. Also use when extracting or reorganizing content from .docx files, inserting or replacing images in documents, performing find-and-replace in Word files, working with tracked changes or comments, or converting content into a polished Word document. If the user asks for a 'report', 'memo', 'letter', 'template', or similar deliverable as a Word or .docx file, use this skill. Do NOT use for PDFs, spreadsheets, Google Docs, or general coding tasks unrelated to document generation.",
+      "owner_agent": null,
+      "version": null,
+      "argument_hint": null,
+      "path": "skills/docx/SKILL.md",
+      "references": [],
+      "assets": [],
+      "body_tokens_est": 4795,
+      "vendored": true
+    },
+    {
+      "name": "frontend-design",
+      "description": "Guidance for distinctive, intentional visual design when building new UI or reshaping an existing one. Helps with aesthetic direction, typography, and making choices that don't read as templated defaults.",
+      "owner_agent": null,
+      "version": null,
+      "argument_hint": null,
+      "path": "skills/frontend-design/SKILL.md",
+      "references": [],
+      "assets": [],
+      "body_tokens_est": 1990,
+      "vendored": true
+    },
+    {
+      "name": "git-pr-workflow",
+      "description": "coderAS-family skill for safe, disciplined version-control on any repo: small atomic commits, a mandatory pre-publish report + approval gate before any push/PR, and correct authorship. Triggers on: \"commit this\", \"make a PR\", \"push my changes\", \"open a pull request\", \"prep a commit\", \"write a commit message\", \"publish to remote\", \"raise a PR\". Encodes coderAS operating rules 18 (VC hygiene), 19 (approval gate before remote publish) and 20 (authorship = the owner, never an AI persona). Use whenever work crosses from editing files to recording or publishing them. Do NOT use it to bypass the approval gate.",
+      "owner_agent": "coderAS",
+      "version": "1.0.0",
+      "argument_hint": "Tell me the scope to commit and whether this is local-only or headed to a remote",
+      "path": "skills/git-pr-workflow/SKILL.md",
+      "references": [],
+      "assets": [],
+      "body_tokens_est": 804,
+      "vendored": false
+    },
+    {
+      "name": "interactive-explorable",
+      "description": "teachAS-family skill for building self-contained interactive HTML explorables — the 3Blue1Brown / Bret Victor style \"play with the idea\" widgets that make a concept tangible. Triggers on: \"make an interactive visualization\", \"build a simulation of\", \"let me play with this concept\", \"an explorable for\", \"animate how X works\", \"interactive demo of\". Owns the durable craft of turning one concept into a single-file HTML page with live controls, an honest model, and clear intuition-building. Use when a learner needs to manipulate a concept, not just read it. Do NOT use it for production app UI (that's frontend work).",
+      "owner_agent": "teachAS",
+      "version": "1.0.0",
+      "argument_hint": "Name the concept and the one variable/relationship you want the learner to feel",
+      "path": "skills/interactive-explorable/SKILL.md",
+      "references": [],
+      "assets": [],
+      "body_tokens_est": 693,
+      "vendored": false
+    },
+    {
+      "name": "internal-comms",
+      "description": "A set of resources to help me write all kinds of internal communications, using the formats that my company likes to use. Claude should use this skill whenever asked to write some sort of internal communications (status reports, leadership updates, 3P updates, company newsletters, FAQs, incident reports, project updates, etc.).",
+      "owner_agent": null,
+      "version": null,
+      "argument_hint": null,
+      "path": "skills/internal-comms/SKILL.md",
+      "references": [],
+      "assets": [],
+      "body_tokens_est": 274,
+      "vendored": true
+    },
+    {
+      "name": "latex-build",
+      "description": "paperAS/paper-poster-family skill for compiling LaTeX sources to PDF reliably and reading the errors when it fails. Triggers on: \"build my paper\", \"compile this .tex\", \"make a PDF from LaTeX\", \"my LaTeX won't compile\", \"fix this build error\", \"run bibtex/biber\", \"beamerposter build\". Owns the durable craft of choosing the right engine (pdflatex/xelatex/lualatex), running the full bib pass, parsing the log for the true first error, and producing a clean PDF. Use whenever a .tex/.bib artifact needs to become a PDF or a build is failing. Do NOT use it to write paper content — that stays with paperAS.",
+      "owner_agent": "paperAS",
+      "version": "1.0.0",
+      "argument_hint": "Point me at the main .tex file (and its dir); tell me the engine if you have a preference",
+      "path": "skills/latex-build/SKILL.md",
+      "references": [],
+      "assets": [
+        "assets/build.py"
+      ],
+      "body_tokens_est": 921,
+      "vendored": false
+    },
+    {
+      "name": "lecture-notes",
+      "description": "Use when a user shares a YouTube (or similar) lecture video or playlist URL from a university/research source (Stanford, MIT, CMU, Berkeley, DeepMind, Harvard, etc.) and wants study notes, detailed notes, a breakdown, or a summary to learn from. Also triggers on: 'make notes from this lecture', 'notes for this course/playlist', 'summarize this lecture to learn it', 'explain this lecture video', 'turn this talk into notes'. Trigger on a bare lecture/playlist URL that looks educational. Do NOT use for entertainment videos, news, music, or non-educational clips, and do NOT use for papers (use paper-explainer for arXiv/DOI).",
+      "owner_agent": "teachAS",
+      "version": "1.0.0",
+      "argument_hint": "Paste a lecture or playlist URL (Stanford/MIT/etc.)",
+      "path": "skills/lecture-notes/SKILL.md",
+      "references": [
+        "references/edge-cases.md",
+        "references/enrichment.md",
+        "references/pedagogy.md",
+        "references/styling.md"
+      ],
+      "assets": [
+        "assets/fetch_transcript.py",
+        "assets/index-template.html",
+        "assets/note-template.html",
+        "assets/validate.js"
+      ],
+      "body_tokens_est": 2121,
+      "vendored": false
+    },
+    {
+      "name": "literature-search",
+      "description": "researchAS-family skill for running a structured literature/landscape scan on a topic or claim. Triggers on: \"what's the prior work on\", \"is this novel\", \"find related papers\", \"literature review on\", \"survey the field of\", \"who else has done\", \"state of the art in\". Owns the durable craft of turning a fuzzy topic into search queries, hitting scholarly sources (arXiv, Semantic Scholar, Crossref, DBLP, Google Scholar), deduping and clustering results, and returning a cited, gap-focused landscape. Use for research positioning and novelty questions. Do NOT use it to render a final paper — hand findings to paperAS.",
+      "owner_agent": "researchAS",
+      "version": "1.0.0",
+      "argument_hint": "Give me the topic/claim, and any must-cover venues, authors, or time window",
+      "path": "skills/literature-search/SKILL.md",
+      "references": [],
+      "assets": [],
+      "body_tokens_est": 605,
+      "vendored": false
+    },
+    {
+      "name": "mcp-builder",
+      "description": "Guide for creating high-quality MCP (Model Context Protocol) servers that enable LLMs to interact with external services through well-designed tools. Use when building MCP servers to integrate external APIs or services, whether in Python (FastMCP) or Node/TypeScript (MCP SDK).",
+      "owner_agent": null,
+      "version": null,
+      "argument_hint": null,
+      "path": "skills/mcp-builder/SKILL.md",
+      "references": [],
+      "assets": [],
+      "body_tokens_est": 2175,
+      "vendored": true
+    },
+    {
+      "name": "novelty-log",
+      "description": "researchAS/paperAS/patentAS-family skill for maintaining a running novelty log — a durable record of what is new in a project versus the relevant prior art, updated as decisions are made. Triggers on: \"track our novelty\", \"update the novelty log\", \"what's new vs prior art\", \"which decisions strengthen our claim\", \"novelty.md\", \"IP hygiene\". Owns the durable craft of stating each novel element, the closest prior art, the delta, and how each design decision strengthens or weakens the claim. Use for projects with publication or patent goals. Skip for projects with no such goals.",
+      "owner_agent": "researchAS",
+      "version": "1.0.0",
+      "argument_hint": "Tell me the project's core claimed contribution(s), or point me at novelty.md",
+      "path": "skills/novelty-log/SKILL.md",
+      "references": [],
+      "assets": [],
+      "body_tokens_est": 591,
+      "vendored": false
+    },
+    {
+      "name": "paper-explainer",
+      "description": "Use when a user shares an arXiv/DOI/journal URL and wants a paper explained, summarized, broken down, or ELI5. Also triggers on: explain this paper, I don't understand this research, walk me through, what does this paper say, explain this like a student. Trigger even on a bare URL if it looks like a research paper. Do NOT use for blog posts or news articles.",
+      "owner_agent": "paperAS",
+      "version": "1.0.0",
+      "argument_hint": "Paste an arXiv/DOI/journal URL here",
+      "path": "skills/paper-explainer/SKILL.md",
+      "references": [
+        "references/diagrams.md",
+        "references/edge-cases.md",
+        "references/equations.md",
+        "references/html-template.md",
+        "references/output-protocol.md"
+      ],
+      "assets": [],
+      "body_tokens_est": 6628,
+      "vendored": false
+    },
+    {
+      "name": "paper-poster",
+      "description": "paperAS-family skill for designing and BUILDING a conference poster for an ACCEPTED paper. Triggers on: \"make a poster for my paper\", \"my paper got accepted, help me with the poster\", \"design a conference poster\", \"build my CVPR/NeurIPS/ICML/ACL poster\", \"turn my paper into a poster\", \"poster layout / template for my paper\", \"what size should my poster be\", \"beamerposter for my paper\". It owns the durable craft: pulling the venue's official poster size/spec rules, studying the history of posters at that venue + posters of similar-track papers for design inspiration, choosing a layout, drafting the content blocks, and rendering a print-ready poster in the user's chosen format (LaTeX/beamerposter→PDF by default, PowerPoint single-slide, or HTML/CSS). Instance facts (which paper, which venue, which size) are gathered per run, not stored here. Use only AFTER a paper is written/accepted — for writing/critique/venue strategy use paperAS itself; for a spoken talk script use present-pitch-script; for a slide deck hand off to presentAS. Do NOT use before a paper is written or accepted.",
+      "owner_agent": "paperAS",
+      "version": "1.0.0",
+      "argument_hint": "Path/URL to the accepted paper + the conference name (e.g. 'poster.pdf NeurIPS 2026')",
+      "path": "skills/paper-poster/SKILL.md",
+      "references": [
+        "references/build.md",
+        "references/layouts.md",
+        "references/specs.md"
+      ],
+      "assets": [],
+      "body_tokens_est": 3444,
+      "vendored": false
+    },
+    {
+      "name": "patent-claim-drafter",
+      "description": "patentAS-family skill for drafting and stress-testing patent claim sets. Triggers on: \"draft claims for this invention\", \"write patent claims\", \"review my independent claims\", \"where can a competitor design around this\", \"build a claim tree\", \"dependent claims for\". Owns the durable craft of writing a clean independent claim, laddering dependent claims, checking antecedent-basis and single-sentence form, and probing design-around gaps and §101/§112 risks. Use when an invention needs a claim set or an existing set needs review. Do NOT use it to file — drafting and strategy only; a registered attorney reviews filings.",
+      "owner_agent": "patentAS",
+      "version": "1.0.0",
+      "argument_hint": "Describe the invention: the problem, the core inventive step, and key components",
+      "path": "skills/patent-claim-drafter/SKILL.md",
+      "references": [],
+      "assets": [],
+      "body_tokens_est": 849,
+      "vendored": false
+    },
+    {
+      "name": "pdf",
+      "description": "Use this skill whenever the user wants to do anything with PDF files. This includes reading or extracting text/tables from PDFs, combining or merging multiple PDFs into one, splitting PDFs apart, rotating pages, adding watermarks, creating new PDFs, filling PDF forms, encrypting/decrypting PDFs, extracting images, and OCR on scanned PDFs to make them searchable. If the user mentions a .pdf file or asks to produce one, use this skill.",
+      "owner_agent": null,
+      "version": null,
+      "argument_hint": null,
+      "path": "skills/pdf/SKILL.md",
+      "references": [],
+      "assets": [],
+      "body_tokens_est": 1878,
+      "vendored": true
+    },
+    {
+      "name": "plan-synthesis-report",
+      "description": "managerAS-family skill for synthesizing the results of a multi-agent plan into a single bottom-line-up-front report for the user. Triggers on: \"summarize what the agents did\", \"give me the final report\", \"wrap up this plan\", \"synthesize the results\", \"bottom line\", \"executive summary of the run\". Owns the durable craft of leading with the answer, tracing each result to the agent/artifact that produced it, surfacing residual risk and uncertainty honestly, and stating the recommended next action. Use at the end of an orchestrated run. Do NOT use it to plan or route — that's managerAS's planning phase.",
+      "owner_agent": "managerAS",
+      "version": "1.0.0",
+      "argument_hint": "Point me at the run's artifacts/event log (or paste the per-agent outputs) and the original mission",
+      "path": "skills/plan-synthesis-report/SKILL.md",
+      "references": [],
+      "assets": [],
+      "body_tokens_est": 630,
+      "vendored": false
+    },
+    {
+      "name": "prep-interview",
+      "description": "prepAS family playbook for preparing high-stakes INTERVIEWS — job/PPO/return-offer interviews, internship conversions, Applied-Scientist / ML / data-science / SWE loops, and any \"interview me / mock me / prep me for my interview\" request. Triggers on: \"prep me for my interview\", \"PPO interview\", \"return offer\", \"mock interview me\", \"Applied Scientist interview\", \"ML/DS/SWE interview\", \"behavioral round prep\", \"system design interview\", \"what will they ask me\". Holds the durable question-space taxonomy, coverage categories, answer frameworks (STAR+L, metric-selection, system design), pitfalls, and model patterns that transfer across every interview. Instance facts (this company, this date, this project) live in the per-scenario tracker, not here. Do NOT use for presentation or talk prep (use prep-presentation) or for resume tailoring (use resume-optimizer).",
+      "owner_agent": "prepAS",
+      "version": "1.0.0",
+      "argument_hint": null,
+      "path": "skills/prep-interview/SKILL.md",
+      "references": [],
+      "assets": [],
+      "body_tokens_est": 2131,
+      "vendored": false
+    },
+    {
+      "name": "prep-presentation",
+      "description": "prepAS family playbook for preparing high-stakes PRESENTATIONS and talks of any kind — internship/project final presentations, exec readouts, demo days, conference talks, all-hands, defenses, sales/launch pitches, \"present like a CEO\" requests. Triggers on: \"prep me for my presentation\", \"help me with my talk/deck/slides\", \"present like a CEO / exec\", \"final presentation\", \"demo day\", \"readout to leadership\", \"improve my presenting/public-speaking/delivery\". Holds the durable question-space taxonomy, coverage categories, deck-design + delivery tactics, pitfalls, and model patterns that transfer across every presentation. Instance facts (this company, this date, this project) live in the per-scenario tracker, not here. Do NOT use for interview prep (use prep-interview) or for writing the spoken pitch script (use present-pitch-script).",
+      "owner_agent": "prepAS",
+      "version": "1.0.0",
+      "argument_hint": null,
+      "path": "skills/prep-presentation/SKILL.md",
+      "references": [],
+      "assets": [],
+      "body_tokens_est": 2045,
+      "vendored": false
+    },
+    {
+      "name": "present-pitch-script",
+      "description": "presentAS-family skill for generating a TIMED, SPOKEN NARRATION SCRIPT for a pitch / demo / launch video — the words a presenter actually says, calibrated to a hard time limit. Triggers on: \"write a pitch script\", \"narration script for my demo video\", \"voiceover/VO script\", \"timed script for a 3-minute pitch\", \"script for my project pitch\", \"demo-day video script\", \"what do I say in the video\". Owns the durable craft: storytelling-framework selection, live stat research, ~2.4 words/second timing math, demo-beat narration, Problem≠Impact discipline, brand-phrase weaving, and the copy-paste script + timing-table output format. It produces the SCRIPT ONLY — slide decks are out of scope and belong to presentAS's existing YAML→PPTX+reveal.js pipeline (see the handoff at the end). Instance facts (this project, this demo, this time limit) are gathered per run, not stored here. Do NOT use to build the slide deck itself (that is presentAS's YAML→PPTX+reveal.js pipeline).",
+      "owner_agent": "presentAS",
+      "version": "1.0.0",
+      "argument_hint": null,
+      "path": "skills/present-pitch-script/SKILL.md",
+      "references": [
+        "references/frameworks.md"
+      ],
+      "assets": [],
+      "body_tokens_est": 2229,
+      "vendored": false
+    },
+    {
+      "name": "prior-art-search",
+      "description": "patentAS-family skill for prior-art and freedom-to-operate searches. Triggers on: \"do a prior-art search\", \"is this patentable\", \"search patents for\", \"freedom to operate\", \"FTO check\", \"has this been patented\", \"novelty/obviousness search\", \"§102/§103\". Owns the durable craft of building a search around an invention's inventive step, querying patent and non-patent literature (Google Patents, USPTO/EPO/WIPO, plus scholarly sources), and assessing novelty (§102) and obviousness (§103) risk. Use before drafting or filing. Do NOT treat results as a legal clearance — a registered attorney makes the call.",
+      "owner_agent": "patentAS",
+      "version": "1.0.0",
+      "argument_hint": "Describe the invention's inventive step and the key technical features to search on",
+      "path": "skills/prior-art-search/SKILL.md",
+      "references": [],
+      "assets": [],
+      "body_tokens_est": 678,
+      "vendored": false
+    },
+    {
+      "name": "resume-optimizer",
+      "description": "Use when a user shares a resume (file/path/text) together with a target job posting link and wants the resume tailored, optimized, aligned, or ATS-tuned for that job. Also triggers on: optimize my resume for this JD, tailor my CV to this role, make my resume match this posting, align my resume to this job, and on requests for similar/related job openings to apply to. Do NOT use for cover letters, LinkedIn profile rewrites, or generic resume-from-scratch requests unless a target job link is also provided.",
+      "owner_agent": "prepAS",
+      "version": "1.0.0",
+      "argument_hint": "Paste a job posting URL and point me to your resume file (e.g. main.tex)",
+      "path": "skills/resume-optimizer/SKILL.md",
+      "references": [],
+      "assets": [],
+      "body_tokens_est": 3801,
+      "vendored": false
+    },
+    {
+      "name": "skill-creator",
+      "description": "Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scratch, edit, or optimize an existing skill, run evals to test a skill, benchmark skill performance with variance analysis, or optimize a skill's description for better triggering accuracy.",
+      "owner_agent": null,
+      "version": null,
+      "argument_hint": null,
+      "path": "skills/skill-creator/SKILL.md",
+      "references": [
+        "references/schemas.md"
+      ],
+      "assets": [
+        "assets/eval_review.html"
+      ],
+      "body_tokens_est": 8156,
+      "vendored": true
+    },
+    {
+      "name": "theme-factory",
+      "description": "Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc. There are 10 pre-set themes with colors/fonts that you can apply to any artifact that has been creating, or can generate a new theme on-the-fly.",
+      "owner_agent": null,
+      "version": null,
+      "argument_hint": null,
+      "path": "skills/theme-factory/SKILL.md",
+      "references": [],
+      "assets": [],
+      "body_tokens_est": 694,
+      "vendored": true
+    },
+    {
+      "name": "web-artifacts-builder",
+      "description": "Suite of tools for creating elaborate, multi-component claude.ai HTML artifacts using modern frontend web technologies (React, Tailwind CSS, shadcn/ui). Use for complex artifacts requiring state management, routing, or shadcn/ui components - not for simple single-file HTML/JSX artifacts.",
+      "owner_agent": null,
+      "version": null,
+      "argument_hint": null,
+      "path": "skills/web-artifacts-builder/SKILL.md",
+      "references": [],
+      "assets": [],
+      "body_tokens_est": 673,
+      "vendored": true
+    },
+    {
+      "name": "webapp-testing",
+      "description": "Toolkit for interacting with and testing local web applications using Playwright. Supports verifying frontend functionality, debugging UI behavior, capturing browser screenshots, and viewing browser logs.",
+      "owner_agent": null,
+      "version": null,
+      "argument_hint": null,
+      "path": "skills/webapp-testing/SKILL.md",
+      "references": [],
+      "assets": [],
+      "body_tokens_est": 893,
+      "vendored": true
+    },
+    {
+      "name": "xlsx",
+      "description": "Use this skill any time a spreadsheet file is the primary input or output. This means any task where the user wants to: open, read, edit, or fix an existing .xlsx, .xlsm, .csv, or .tsv file (e.g., adding columns, computing formulas, formatting, charting, cleaning messy data); create a new spreadsheet from scratch or from other data sources; or convert between tabular file formats. Trigger especially when the user references a spreadsheet file by name or path — even casually (like \\\"the xlsx in my downloads\\\") — and wants something done to it or produced from it. Also trigger for cleaning or restructuring messy tabular data files (malformed rows, misplaced headers, junk data) into proper spreadsheets. The deliverable must be a spreadsheet file. Do NOT trigger when the primary deliverable is a Word document, HTML report, standalone Python script, database pipeline, or Google Sheets API integration, even if tabular data is involved.",
+      "owner_agent": null,
+      "version": null,
+      "argument_hint": null,
+      "path": "skills/xlsx/SKILL.md",
+      "references": [],
+      "assets": [],
+      "body_tokens_est": 2605,
+      "vendored": true
+    }
+  ]
+}
