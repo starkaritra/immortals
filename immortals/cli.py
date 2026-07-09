@@ -457,8 +457,13 @@ def cmd_dashboard(args: argparse.Namespace) -> int:
     """
     db = Path(args.db)
     if not db.exists():
-        print(json.dumps({"status": "failed", "error": f"db not found: {db}"}))
-        return 2
+        if getattr(args, "create", False):
+            db.parent.mkdir(parents=True, exist_ok=True)
+            from immortals.memory import MemoryStore
+            MemoryStore(str(db)).close()  # initialize an empty event store
+        else:
+            print(json.dumps({"status": "failed", "error": f"db not found: {db} (use --create to start empty)"}))
+            return 2
     try:
         import uvicorn
 
@@ -576,6 +581,8 @@ def build_parser() -> argparse.ArgumentParser:
     dashboard.add_argument("--host", default="127.0.0.1",
                            help="Bind address (default: 127.0.0.1, localhost-only).")
     dashboard.add_argument("--port", type=int, default=8765, help="Port (default: 8765).")
+    dashboard.add_argument("--create", action="store_true",
+                           help="Create an empty store if --db doesn't exist yet (e.g. a fresh desktop launch).")
     dashboard.set_defaults(func=cmd_dashboard)
     return parser
 
