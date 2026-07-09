@@ -78,3 +78,11 @@ def test_portable_adapters_are_fresh():
         if not p.exists() or p.read_text(encoding="utf-8") != content:
             stale.append(rel)
     assert not stale, f"portable adapters stale: {stale} — run: python scripts/gen_adapters.py"
+
+
+def test_skill_requires_targets_exist():
+    """Every skill `requires:` entry must name a real skill (no dangling dep)."""
+    lint = _load_linter()
+    drift = lint.check_interop(lint.collect())
+    dangling = [w for w in drift if "does not exist (deps)" in w]
+    assert not dangling, f"dangling skill deps: {dangling}"

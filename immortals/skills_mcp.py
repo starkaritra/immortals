@@ -177,6 +177,7 @@ def call_tool(skills_dir: Path, name: str, arguments: dict[str, Any] | None) -> 
                 "description": s.get("description", ""),
                 "owner_agent": s.get("owner_agent"),
                 "argument_hint": s.get("argument_hint"),
+                "requires": s.get("requires", []),
                 "has_references": bool(s.get("references")),
                 "has_assets": bool(s.get("assets")),
             } for s in skills]
@@ -197,7 +198,12 @@ def call_tool(skills_dir: Path, name: str, arguments: dict[str, Any] | None) -> 
             if d is None:
                 return json.dumps({"error": f"unknown skill: {args['name']!r}"}), True
             body = (d / "SKILL.md").read_text(encoding="utf-8-sig", errors="replace")
-            return json.dumps({"name": args["name"], "content": body}, ensure_ascii=False), False
+            # Surface declared deps so the agent can skill_get them ONLY if it needs them
+            # (not auto-loaded — that would defeat lazy loading).
+            requires = next((s.get("requires", []) for s in _load_index(skills_dir)
+                             if s.get("name") == args["name"]), [])
+            return json.dumps({"name": args["name"], "content": body, "requires": requires},
+                              ensure_ascii=False), False
 
         if name == "skill_get_reference":
             d = _safe_skill_dir(skills_dir, args["name"])

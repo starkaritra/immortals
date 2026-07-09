@@ -16,6 +16,7 @@ description: >
   hand off to presentAS. Do NOT use before a paper is written or accepted.
 argument-hint: "Path/URL to the accepted paper + the conference name (e.g. 'poster.pdf NeurIPS 2026')"
 owner-agent: paperAS
+requires: [latex-build]
 version: 1.0.0
 ---
 

@@ -10,6 +10,7 @@ description: >
   Do NOT use it to file — drafting and strategy only; a registered attorney reviews filings.
 argument-hint: "Describe the invention: the problem, the core inventive step, and key components"
 owner-agent: patentAS
+requires: [prior-art-search]
 version: 1.0.0
 ---
 

@@ -75,6 +75,33 @@ def get_field(fm: str, key: str) -> str | None:
     return None
 
 
+def parse_list_field(fm: str, key: str) -> list[str]:
+    """Parse a frontmatter list field in flow style (`key: [a, b]`) or block style
+    (`key:` then `  - a`). Returns [] if absent."""
+    lines = fm.splitlines()
+    for i, line in enumerate(lines):
+        m = re.match(rf"^{re.escape(key)}\s*:\s*(.*)$", line)
+        if not m:
+            continue
+        val = m.group(1).strip()
+        if val.startswith("[") and val.endswith("]"):
+            inner = val[1:-1].strip()
+            return [x.strip().strip('"').strip("'") for x in inner.split(",") if x.strip()]
+        if val == "":
+            out = []
+            for nxt in lines[i + 1:]:
+                s = nxt.strip()
+                if s.startswith("- "):
+                    out.append(s[2:].strip().strip('"').strip("'"))
+                elif s == "" or nxt.startswith((" ", "\t")):
+                    continue
+                else:
+                    break
+            return out
+        return [val.strip().strip('"').strip("'")]
+    return []
+
+
 def rel_files(base: Path, subdir: str) -> list[str]:
     d = base / subdir
     if not d.is_dir():
@@ -99,6 +126,7 @@ def build_index() -> dict:
             "owner_agent": get_field(fm, "owner-agent"),
             "version": get_field(fm, "version"),
             "argument_hint": get_field(fm, "argument-hint"),
+            "requires": parse_list_field(fm, "requires"),
             "path": f"skills/{skill_dir.name}/SKILL.md",
             "references": rel_files(skill_dir, "references"),
             "assets": rel_files(skill_dir, "assets"),

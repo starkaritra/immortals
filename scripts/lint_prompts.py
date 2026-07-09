@@ -226,6 +226,23 @@ def check_interop(results: list[Result]) -> list[str]:
             warns.append(f"skill '{skill}' owned by {ag} but not listed in {ag}'s manifest (Arm E)")
         elif declared[skill] != ag:
             warns.append(f"skill '{skill}' owner-agent={ag} but declared under {declared[skill]} (Arm E)")
+
+    # `requires:` targets must be real skills (no dangling dependency).
+    all_skills = {p.name for p in SKILLS_DIR.iterdir() if p.is_dir() and (p / "SKILL.md").exists()}
+    for r in results:
+        if r.kind != "skill" or Path(r.path).parent.name in VENDORED_SKILLS:
+            continue
+        name = Path(r.path).parent.name
+        text = (REPO / r.path).read_text(encoding="utf-8-sig", errors="replace")
+        fm = re.match(r"^\ufeff?---\s*\n(.*?)\n---", text, re.DOTALL)
+        if not fm:
+            continue
+        rm = re.search(r"(?m)^requires:\s*\[(.*?)\]", fm.group(1))
+        if not rm:
+            continue
+        for dep in (d.strip().strip('"').strip("'") for d in rm.group(1).split(",") if d.strip()):
+            if dep not in all_skills:
+                warns.append(f"skill '{name}' requires '{dep}' which does not exist (deps)")
     return warns
 
 

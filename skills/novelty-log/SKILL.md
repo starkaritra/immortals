@@ -10,6 +10,7 @@ description: >
   goals. Skip for projects with no such goals.
 argument-hint: "Tell me the project's core claimed contribution(s), or point me at novelty.md"
 owner-agent: researchAS
+requires: [literature-search]
 version: 1.0.0
 ---
 

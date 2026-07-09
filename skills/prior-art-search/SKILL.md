@@ -10,6 +10,7 @@ description: >
   NOT treat results as a legal clearance — a registered attorney makes the call.
 argument-hint: "Describe the invention's inventive step and the key technical features to search on"
 owner-agent: patentAS
+requires: [literature-search]
 version: 1.0.0
 ---
 
