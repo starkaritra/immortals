@@ -48,7 +48,7 @@ between them through a **local SQLite + MCP** memory substrate.
   `dashboard` — AS-013..024), and **`dashboard/`** (read-only web inspector — prototype frontend; a
   FastAPI app + single static page with 4 views over a run store; FastAPI/uvicorn behind the optional
   `[dashboard]` extra; the read-half seed of the Phase-8 API — see `design/prototype-frontend-handoff.md`).
-  Tests: **231 passing** (227 + 4 for AS-033 planner & orchestrate endpoint).
+  Tests: **240 passing** (231 + 4 folder-picker/register + 5 for AS-034 authoring API).
 - **Ship-ready (AS-024):** all paths resolve through `immortals/config.py` (env-overridable, no
   machine-specific hard-coding); the AS personas ship in repo `agents/` (source of truth) and
   `immortals agents install` syncs them into the copilot agents dir. `<name>AS.md` is the locked
@@ -95,6 +95,22 @@ between them through a **local SQLite + MCP** memory substrate.
 
 ## 5. Decision log (ADR-style)
 > Append-only. Stable anchors; when superseded, keep the anchor and change the title.
+
+### [AS-034] Authoring API — create agents & skills from the Console
+- Date: 2026-07-09
+- Status: accepted (implemented)
+- Context: The Console's "+ Add agent" / "+ Add skill" flows need the engine to scaffold a new agent
+  (persona + capability manifest) or skill (SKILL.md + index) as first-class suite assets.
+- Decision: `dashboard/authoring.py` — `POST /api/agents` writes a `registry/<name>.json`
+  (validated against `registry/v1`) + `agents/<name>.md` persona (frontmatter + body); `POST
+  /api/skills` writes `skills/<name>/SKILL.md` (frontmatter template) then regenerates
+  `skills/INDEX.json` via `scripts/gen_skill_index.py`. Writes target the engine's asset dirs
+  (env-overridable via `config`), the source of truth `agents install` syncs from.
+- Rationale: reuses the existing registry/v1 contract + skill-index generator; validates before
+  writing; names are slug-guarded and never overwrite (409) — safe mutation.
+- Consequences: unblocks the Console authoring modals. Follow-ups: edit/delete, prompt-lint gate on
+  create, and richer persona templates. Tests: `test_authoring.py` (agent + skill create, bad
+  input, no-overwrite) with asset dirs redirected to a temp home.
 
 ### [AS-033] Goal→plan orchestration endpoint (managerAS + a deterministic route planner)
 - Date: 2026-07-09

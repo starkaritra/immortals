@@ -176,5 +176,9 @@ def create_app(db_path: str):
     from .projects import attach_projects_api
     attach_projects_api(app)
 
+    # Authoring API (AS-034): create new agents/skills from the Console.
+    from .authoring import attach_authoring_api
+    attach_authoring_api(app)
+
     app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
     return app
