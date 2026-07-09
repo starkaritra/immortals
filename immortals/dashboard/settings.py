@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import stat
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +25,7 @@ from immortals import config
 from immortals.runners.providers import ModelProvider, get_provider
 
 from fastapi import Body, HTTPException
+from fastapi.responses import StreamingResponse
 
 # Starter catalogue the UI offers to enable. `adapter` is the wire protocol; OpenAI-compatible
 # hosts all use the `openai` adapter with a fixed base_url. `local` = no key needed.
@@ -55,6 +58,18 @@ SUGGESTED: list[dict[str, Any]] = [
 ]
 
 _ADAPTERS = {"anthropic", "openai", "gemini", "ollama"}
+
+# One-click local models (pulled via Ollama, which downloads + serves GGUF from its registry or
+# directly from Hugging Face via `hf.co/<user>/<repo>`).
+SUGGESTED_LOCAL: list[dict[str, Any]] = [
+    {"name": "qwen2.5", "label": "Qwen2.5 7B", "size": "~4.7 GB", "note": "best small all-rounder + tools"},
+    {"name": "qwen2.5-coder", "label": "Qwen2.5-Coder 7B", "size": "~4.7 GB", "note": "coding"},
+    {"name": "llama3.1", "label": "Llama 3.1 8B", "size": "~4.9 GB", "note": "strong general"},
+    {"name": "glm4", "label": "GLM-4 9B", "size": "~5.5 GB", "note": "multilingual"},
+    {"name": "gemma2", "label": "Gemma 2 9B", "size": "~5.4 GB", "note": "Google"},
+    {"name": "phi3.5", "label": "Phi-3.5 mini 3.8B", "size": "~2.2 GB", "note": "tiny + fast"},
+    {"name": "qwen2.5:3b", "label": "Qwen2.5 3B", "size": "~1.9 GB", "note": "very small"},
+]
 
 
 def _mask(key: str | None) -> dict[str, Any]:
@@ -159,14 +174,35 @@ def build_provider(store: SettingsStore, provider_ref: str) -> tuple[ModelProvid
     return get_provider(adapter, **kwargs), cfg.get("model")
 
 
-def test_provider(store: SettingsStore, provider_id: str) -> dict[str, Any]:
-    """Make a tiny live call to validate a provider's key/endpoint. Never raises."""
+def _provider_from_cfg(cfg: dict[str, Any], store: "SettingsStore | None" = None) -> tuple[ModelProvider, str | None]:
+    """Build a provider from an explicit config dict (used by the Test button — tests what's on
+    screen). If ``api_key`` is empty but an ``id`` is given, reuse the stored key for that id."""
+    adapter = cfg.get("adapter")
+    if adapter not in _ADAPTERS:
+        raise ValueError(f"adapter must be one of {sorted(_ADAPTERS)}")
+    api_key = cfg.get("api_key")
+    if not api_key and store is not None and cfg.get("id"):
+        existing = store.get(cfg["id"])
+        api_key = existing.get("api_key") if existing else None
+    kwargs: dict[str, Any] = {}
+    if api_key:
+        kwargs["api_key"] = api_key
+    base = cfg.get("base_url")
+    if base and adapter == "openai":
+        kwargs["base_url"] = base
+    elif base and adapter == "ollama":
+        kwargs["host"] = base
+    return get_provider(adapter, **kwargs), cfg.get("model")
+
+
+def test_config(cfg: dict[str, Any], store: "SettingsStore | None" = None) -> dict[str, Any]:
+    """Make a tiny live call to validate a provider config's key/endpoint. Never raises."""
     import time
 
     from immortals.runners.providers import ChatMessage
 
     try:
-        provider, model = build_provider(store, provider_id)
+        provider, model = _provider_from_cfg(cfg, store)
     except Exception as exc:  # noqa: BLE001 - surface as a result, not a 500
         return {"ok": False, "error": str(exc)}
     started = time.monotonic()
@@ -183,6 +219,27 @@ def test_provider(store: SettingsStore, provider_id: str) -> dict[str, Any]:
         "latency_ms": round((time.monotonic() - started) * 1000),
         "sample": (resp.text or "").strip()[:80],
     }
+
+
+# -- Ollama: one-click local model download + status ------------------------------------
+
+def _ollama_host() -> str:
+    return (os.environ.get("OLLAMA_HOST") or "http://localhost:11434").rstrip("/")
+
+
+def ollama_status() -> dict[str, Any]:
+    """Whether the Ollama binary is installed and its server is reachable, + installed models."""
+    host = _ollama_host()
+    installed = shutil.which("ollama") is not None
+    models: list[str] = []
+    running = False
+    try:
+        with urllib.request.urlopen(host + "/api/tags", timeout=2) as r:
+            models = [m.get("name") for m in json.load(r).get("models", [])]
+            running = True
+    except Exception:  # noqa: BLE001 - not running / not installed
+        pass
+    return {"installed": installed, "running": running, "host": host, "models": models}
 
 
 def attach_settings_api(app, store: SettingsStore) -> None:
@@ -203,6 +260,37 @@ def attach_settings_api(app, store: SettingsStore) -> None:
         store.delete(provider_id)
         return {"ok": True}
 
-    @app.post("/api/settings/providers/{provider_id}/test")
-    def test_endpoint(provider_id: str) -> dict[str, Any]:
-        return test_provider(store, provider_id)
+    @app.post("/api/settings/providers/test")
+    def test_endpoint(body: dict = Body(...)) -> dict[str, Any]:
+        return test_config(body, store)
+
+    @app.get("/api/settings/ollama/status")
+    def ollama_status_ep() -> dict[str, Any]:
+        return ollama_status()
+
+    @app.get("/api/settings/ollama/recommended")
+    def ollama_recommended() -> dict[str, Any]:
+        return {"models": SUGGESTED_LOCAL, "status": ollama_status()}
+
+    @app.post("/api/settings/ollama/pull")
+    def ollama_pull(body: dict = Body(...)):
+        """Stream `ollama pull` progress (NDJSON) by proxying Ollama's /api/pull."""
+        model = (body.get("model") or "").strip()
+        if not model:
+            raise HTTPException(status_code=422, detail="'model' is required")
+        host = _ollama_host()
+
+        def gen():
+            try:
+                req = urllib.request.Request(
+                    host + "/api/pull",
+                    data=json.dumps({"name": model, "stream": True}).encode(),
+                    headers={"Content-Type": "application/json"},
+                )
+                with urllib.request.urlopen(req) as r:
+                    for line in r:
+                        yield line
+            except Exception as exc:  # noqa: BLE001 - ollama not running / model not found
+                yield (json.dumps({"status": "error", "error": str(exc)}) + "\n").encode()
+
+        return StreamingResponse(gen(), media_type="application/x-ndjson")

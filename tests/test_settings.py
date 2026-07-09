@@ -67,15 +67,31 @@ def test_bad_adapter_rejected(client):
 
 
 def test_connection_test_reports_missing_key(client):
-    # anthropic provider with no key + no env key -> the test call fails gracefully (ok:false).
+    # anthropic config with no key + no env key -> the test call fails gracefully (ok:false).
     import os
 
     os.environ.pop("ANTHROPIC_API_KEY", None)
-    client.put("/api/settings/providers", json={"id": "anthropic", "adapter": "anthropic",
-                                                "model": "claude-3-5-haiku-latest"})
-    res = client.post("/api/settings/providers/anthropic/test").json()
+    res = client.post("/api/settings/providers/test",
+                      json={"id": "anthropic", "adapter": "anthropic", "model": "claude-3-5-haiku-latest"}).json()
     assert res["ok"] is False
     assert "ANTHROPIC_API_KEY" in res["error"]
+
+
+def test_connection_test_bad_adapter(client):
+    res = client.post("/api/settings/providers/test", json={"adapter": "nope"}).json()
+    assert res["ok"] is False and "adapter" in res["error"]
+
+
+def test_ollama_status_shape(client):
+    s = client.get("/api/settings/ollama/status").json()
+    assert set(s) >= {"installed", "running", "host", "models"}
+    assert isinstance(s["models"], list)
+
+
+def test_ollama_recommended(client):
+    data = client.get("/api/settings/ollama/recommended").json()
+    names = {m["name"] for m in data["models"]}
+    assert "qwen2.5" in names and "llama3.1" in names
 
 
 def test_build_provider_from_config(tmp_path, monkeypatch):
