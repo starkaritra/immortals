@@ -31,6 +31,11 @@ orchestration system; the AS agents are "the immortals" it commands.*
   map. These mirror `~/.copilot/skills/` so the capability set is versioned with the agents.
 - **Memory** — local-first SQLite (append-only `event/v1` log + persisted artifacts + a shared
   `notes` KV; runs are reconstructable by folding the log), exposed over a zero-dep MCP server.
+- **Portable layer** — run the suite on any MCP host (Claude Code, Codex, Gemini CLI, Cursor,
+  Goose, …) via a lazy-loading skills MCP server (`immortals/skills_mcp.py`), a generated skill
+  index (`skills/INDEX.json`), and generated per-host adapters (`portable/`). See
+  **`docs/SETUP.md`** for step-by-step setup + do/don't, and `docs/cross-harness-tooling.md` for
+  the host landscape.
 
 See `design/architecture.md` (target spec), `design/plan.md` (build order), and
 `design/handoff.md` (state + decision log AS-001…AS-028).
