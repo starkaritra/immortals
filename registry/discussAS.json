@@ -2,10 +2,24 @@
   "schema": "registry/v1",
   "agent": "discussAS",
   "summary": "Critical strategy, brainstorming & decision-stress-testing partner: grills plans, surfaces blind spots, and pressure-tests decisions.",
-  "capabilities": ["critique", "brainstorming", "decision_stress_test", "design_review"],
-  "consumes": ["plan", "design", "idea", "code_change"],
-  "produces": ["critique", "recommendation"],
+  "capabilities": [
+    "critique",
+    "brainstorming",
+    "decision_stress_test",
+    "design_review"
+  ],
+  "consumes": [
+    "plan",
+    "design",
+    "idea",
+    "code_change"
+  ],
+  "produces": [
+    "critique",
+    "recommendation"
+  ],
   "approval_default": "none",
   "cost_hint": "low",
-  "when_to_use": "stress-test a plan/decision, brainstorm options, or get a critical design review"
+  "when_to_use": "stress-test a plan/decision, brainstorm options, or get a critical design review",
+  "skills": []
 }

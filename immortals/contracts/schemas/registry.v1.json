@@ -19,6 +19,11 @@
     "produces": { "type": "array", "items": { "type": "string" } },
     "approval_default": { "enum": ["required", "none"], "default": "none" },
     "cost_hint": { "enum": ["low", "medium", "high"], "default": "medium" },
-    "when_to_use": { "type": "string" }
+    "when_to_use": { "type": "string" },
+    "skills": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Names of the skills (skills/<name>/SKILL.md) this agent owns/invokes."
+    }
   }
 }

@@ -2,10 +2,27 @@
   "schema": "registry/v1",
   "agent": "patentAS",
   "summary": "Patent partner: drafting, prior-art search, claim strategy, and patentability/FTO assessment.",
-  "capabilities": ["patent_drafting", "prior_art_search", "claim_review", "patentability_assessment", "office_action_response"],
-  "consumes": ["invention_disclosure", "research_report"],
-  "produces": ["patent_draft", "prior_art_report", "patentability_assessment"],
+  "capabilities": [
+    "patent_drafting",
+    "prior_art_search",
+    "claim_review",
+    "patentability_assessment",
+    "office_action_response"
+  ],
+  "consumes": [
+    "invention_disclosure",
+    "research_report"
+  ],
+  "produces": [
+    "patent_draft",
+    "prior_art_report",
+    "patentability_assessment"
+  ],
   "approval_default": "none",
   "cost_hint": "medium",
-  "when_to_use": "draft/review patents, search prior art, or assess patentability"
+  "when_to_use": "draft/review patents, search prior art, or assess patentability",
+  "skills": [
+    "patent-claim-drafter",
+    "prior-art-search"
+  ]
 }

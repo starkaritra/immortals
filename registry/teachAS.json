@@ -2,10 +2,28 @@
   "schema": "registry/v1",
   "agent": "teachAS",
   "summary": "Universal teacher: explains complex topics to real depth with diagnosis, scaffolding, checks for understanding, and dynamic simulations.",
-  "capabilities": ["explanation", "tutoring", "concept_breakdown", "interactive_simulation", "quiz"],
-  "consumes": ["topic", "concept", "code_change"],
-  "produces": ["explanation", "lesson", "simulation"],
+  "capabilities": [
+    "explanation",
+    "tutoring",
+    "concept_breakdown",
+    "interactive_simulation",
+    "quiz"
+  ],
+  "consumes": [
+    "topic",
+    "concept",
+    "code_change"
+  ],
+  "produces": [
+    "explanation",
+    "lesson",
+    "simulation"
+  ],
   "approval_default": "none",
   "cost_hint": "low",
-  "when_to_use": "understand, learn, or get a complex topic explained to depth"
+  "when_to_use": "understand, learn, or get a complex topic explained to depth",
+  "skills": [
+    "lecture-notes",
+    "interactive-explorable"
+  ]
 }

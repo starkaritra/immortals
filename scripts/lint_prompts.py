@@ -29,6 +29,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 AGENTS_DIR = REPO / "agents"
 SKILLS_DIR = REPO / "skills"
+REGISTRY_DIR = REPO / "registry"
 
 # Rough token estimate: ~4 chars/token is the standard back-of-envelope for English.
 CHARS_PER_TOKEN = 4
@@ -189,17 +190,58 @@ def collect() -> list[Result]:
     return results
 
 
+def check_interop(results: list[Result]) -> list[str]:
+    """Arm E cross-check: each native skill's `owner-agent` should be declared back in that
+    agent's registry manifest `skills` list. Agents without a worker manifest (e.g. managerAS,
+    the router) are exempt. Returns a list of drift warnings."""
+    warns: list[str] = []
+    # owner-agent per native skill, read from the lint results' source files.
+    owner: dict[str, str] = {}
+    for r in results:
+        if r.kind != "skill" or "no SKILL.md" in " ".join(r.errors):
+            continue
+        name = Path(r.path).parent.name
+        if name in VENDORED_SKILLS:
+            continue
+        text = (REPO / r.path).read_text(encoding="utf-8-sig", errors="replace")
+        m = re.search(r"(?m)^owner-agent:\s*(\S+)", text)
+        if m:
+            owner[name] = m.group(1)
+    # skills declared by each manifest.
+    declared: dict[str, str] = {}
+    manifest_agents: set[str] = set()
+    if REGISTRY_DIR.is_dir():
+        for jf in REGISTRY_DIR.glob("*.json"):
+            try:
+                d = json.loads(jf.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            manifest_agents.add(d.get("agent", jf.stem))
+            for s in d.get("skills", []):
+                declared[s] = d.get("agent", jf.stem)
+    for skill, ag in sorted(owner.items()):
+        if ag not in manifest_agents:
+            continue  # router / no worker manifest — exempt
+        if skill not in declared:
+            warns.append(f"skill '{skill}' owned by {ag} but not listed in {ag}'s manifest (Arm E)")
+        elif declared[skill] != ag:
+            warns.append(f"skill '{skill}' owner-agent={ag} but declared under {declared[skill]} (Arm E)")
+    return warns
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--json", action="store_true", help="machine-readable output")
     args = ap.parse_args()
 
     results = collect()
+    interop_warns = check_interop(results)
     n_err = sum(len(r.errors) for r in results)
-    n_warn = sum(len(r.warnings) for r in results)
+    n_warn = sum(len(r.warnings) for r in results) + len(interop_warns)
 
     if args.json:
-        print(json.dumps([r.__dict__ for r in results], indent=2))
+        payload = {"artifacts": [r.__dict__ for r in results], "interop": interop_warns}
+        print(json.dumps(payload, indent=2))
         return 1 if n_err else 0
 
     print(f"Linted {len(results)} artifacts  "
@@ -214,6 +256,10 @@ def main() -> int:
         for e in r.errors:
             print(f"        ERROR:   {e}")
         for w in r.warnings:
+            print(f"        warn:    {w}")
+    if interop_warns:
+        print("\n  interop (Arm E):")
+        for w in interop_warns:
             print(f"        warn:    {w}")
     print(f"\nSummary: {n_err} error(s), {n_warn} warning(s) across {len(results)} artifacts.")
     return 1 if n_err else 0

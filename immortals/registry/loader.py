@@ -44,6 +44,7 @@ class AgentManifest:
     approval_default: str = "none"
     cost_hint: str = "medium"
     when_to_use: str = ""
+    skills: tuple[str, ...] = ()
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "AgentManifest":
@@ -57,6 +58,7 @@ class AgentManifest:
             approval_default=d.get("approval_default", "none"),
             cost_hint=d.get("cost_hint", "medium"),
             when_to_use=d.get("when_to_use", ""),
+            skills=tuple(d.get("skills", [])),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -69,6 +71,7 @@ class AgentManifest:
             "approval_default": self.approval_default,
             "cost_hint": self.cost_hint,
             "when_to_use": self.when_to_use,
+            "skills": list(self.skills),
         }
 
 
