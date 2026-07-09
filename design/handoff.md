@@ -19,6 +19,12 @@ between them through a **local SQLite + MCP** memory substrate.
 > autonomy** as it learns you. JARVIS-first, framework-capable. The Phase 0–6 engine is the
 > substrate; Phases 6.5–10 (`plan.md`) build the vision on top.
 
+> **End-user product (forward-looking):** the user-facing face of this engine is planned as
+> **Immortals Console** — an agent-centric app (agent sidebar + skill library) that consumes this
+> core (registry, skills MCP, orchestrator, memory, the `dashboard/` FastAPI base) rather than
+> reimplementing it. Greenfield vision/handoff/decisions live in the sister folder
+> `../immortals-console/` (separate git lifecycle; not tracked in this repo).
+
 ## 2. Current state
 - **Phase:** **2 DONE** (memory substrate incl. MCP server) + **Phases 3, 4, 5, 6 DONE**. Phases 0–1
   complete. Forward scope is the **vision roadmap (Phases 6.5–10, AS-029)**: outcome-quality eval →

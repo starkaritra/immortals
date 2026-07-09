@@ -40,6 +40,11 @@ orchestration system; the AS agents are "the immortals" it commands.*
 See `design/architecture.md` (target spec), `design/plan.md` (build order), and
 `design/handoff.md` (state + decision log AS-001…AS-028).
 
+> **Forward-looking:** the planned **end-user product** for this engine is
+> **Immortals Console** — an agent-centric app (agent sidebar + skill library) that skins this
+> core rather than reimplementing it. Its greenfield vision/handoff/decisions live in the sister
+> folder `../immortals-console/` (separate lifecycle; not part of this repo).
+
 ## Architecture at a glance
 ```mermaid
 flowchart TD
