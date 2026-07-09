@@ -140,11 +140,18 @@ projections of it. Enables replay, audit, and reproducible runs.
 A single interface decouples *what to run* from *how it's run*:
 `AgentRunner.run(agent, prompt, inputs, context_refs, limits) -> Artifact`.
 
-- **Backend A — headless Copilot CLI (current).** Each worker is a real `copilot` process:
+- **Backend A — headless Copilot CLI.** Each worker is a real `copilot` process:
   `copilot --agent <name> -p "<prompt>" --output-format json --allow-all-tools --no-ask-user
   --add-dir <workspace> --additional-mcp-config @memory.json [--session-id … | --resume …]`.
   Output is JSONL (parsed into the artifact); `--session-id`/`--resume` give continuity and
   replay; `--secret-env-vars` redacts secrets. Reuses the existing `.md` personas verbatim.
+- **Backend B — direct model-provider API (current, standalone).** `immortals/runners/api_backend.py`
+  (`name="api"`) — Copilot-independent. It turns a persona into a system prompt, calls a model
+  **provider** directly, and drives a self-managed tool loop over a workspace-confined,
+  approval-gated `ToolHarness` (`runners/tools.py`), returning a valid `artifact/v1`. Providers
+  (`runners/providers/` — Anthropic, OpenAI, Gemini, Ollama) are **all raw HTTP** over stdlib
+  `urllib` (shared `post_json()` in `base.py`), so the engine carries **no vendor SDKs**. This is
+  the backend that powers Immortals Console (BYO API key or local Ollama). Decision **AS-030/035**.
 - **Backend C — durable framework / ACP (future).** LangGraph (or the CLI's `--acp` Agent
   Client Protocol server) for durable execution, checkpointing, and richer interrupts. The
   personas are reused; only the runner changes.
@@ -185,6 +192,40 @@ audited substrate while each agent keeps its own typed view.
 - **Secret hygiene** — secrets live in env/secret store, never in plans/artifacts/logs;
   `--secret-env-vars` redaction on every worker call.
 - **Least privilege** — each worker gets only the directories/tools/URLs its node needs.
+
+## Serving layer — the Console API
+Beyond the CLI, the engine serves an HTTP/WebSocket API (`immortals/dashboard/`) that the
+standalone GUI product **Immortals Console** (a separate repo) is built on. It is split into a
+**read half** and a **write half**, deliberately so the read routes could ship first and survive
+into the product:
+
+| Concern | Endpoints | File |
+|---|---|---|
+| Catalogue (read) | `GET /api/agents`, `/api/skills`, `/api/runs`, `/api/recall` | `dashboard/app.py` |
+| Delete a run | `DELETE /api/runs/{id}` → `store.delete_task()` (bypasses the append-only triggers for explicit deletes only) | `dashboard/app.py`, `memory/store.py` |
+| Runs (write/live) | `POST /api/tasks` + `WS /ws/tasks/{id}` (backlog replay → live event stream via a thread→async broker) | `dashboard/runs_api.py` |
+| Orchestration | `POST /api/orchestrate` (goal → managerAS/route plan → DAG run) | `dashboard/runs_api.py`, `planner.py` |
+| Projects | kgraph-backed projects + native folder-picker | `dashboard/projects.py` |
+| Authoring | create agents & skills from the UI | `dashboard/authoring.py` |
+| Model settings | `GET /api/settings/catalog`, `GET/PUT/DELETE /api/settings/providers`, `POST /api/settings/providers/test`, Ollama `status`/`recommended`/`pull` | `dashboard/settings.py` |
+
+**Provider/settings model (AS-035).** A server-side `SettingsStore` persists per-provider config
+`{id,label,adapter,base_url,api_key,model,enabled}` to a perms-restricted JSON file under the user's
+home. `build_provider()` resolves a config to a live provider+model. Keys are **masked on read** (the
+browser never re-receives a full key) and never logged. The insight that keeps this small: **every
+OSS/local host is OpenAI-compatible**, so the `openai` adapter + a custom `base_url` covers "add your
+own" — one adapter unlocks the whole local/hosted ecosystem.
+
+## Packaging & distribution
+The engine ships as a **single self-contained binary** so end users need no Python:
+`packaging/immortals-engine.spec` (PyInstaller) bundles the package + `registry/`, `agents/`,
+`skills/`, and `packaging/engine_entry.py` sets `IMMORTALS_HOME = sys._MEIPASS` so the frozen app
+resolves its bundled assets. Because Backend B's providers are SDK-free HTTP, the bundle only needs
+`jsonschema` + `fastapi`/`uvicorn` — small and deterministic. The desktop product spawns this binary
+as a **sidecar**. **CI/CD** (`.github/workflows/`): `ci.yml` runs the pytest matrix on every
+push/PR; `release.yml` builds the binary per OS on a `v*` tag (or manual `workflow_dispatch`) and
+attaches it to the GitHub Release. The two-repo release flow is documented in `RELEASING.md`.
+Decision **AS-036**.
 
 ## Language & reuse
 - Orchestrator in **Python** (the existing eval stack is Python; the agent-framework ecosystem

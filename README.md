@@ -378,7 +378,8 @@ pyinstaller packaging/immortals-engine.spec --noconfirm
 `skills/` (via `IMMORTALS_HOME = sys._MEIPASS`). This binary is what the desktop app spawns as its
 sidecar. **CI/CD:** `.github/workflows/ci.yml` runs the test matrix on every push/PR;
 `release.yml` builds the binary per OS on a `v*` tag (or manual **Run workflow**) and attaches it to
-the GitHub Release. See the Console repo's `RELEASING.md` for the end-to-end two-repo release flow.
+the GitHub Release. See **`RELEASING.md`** for the release steps (and the Console repo's
+`RELEASING.md` for the end-to-end two-repo flow).
 
 ## Develop
 ```pwsh
