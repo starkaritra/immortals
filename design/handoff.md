@@ -48,7 +48,7 @@ between them through a **local SQLite + MCP** memory substrate.
   `dashboard` — AS-013..024), and **`dashboard/`** (read-only web inspector — prototype frontend; a
   FastAPI app + single static page with 4 views over a run store; FastAPI/uvicorn behind the optional
   `[dashboard]` extra; the read-half seed of the Phase-8 API — see `design/prototype-frontend-handoff.md`).
-  Tests: **227 passing** (219 + 8 for AS-032 projects API & ApiRunner event streaming).
+  Tests: **231 passing** (227 + 4 for AS-033 planner & orchestrate endpoint).
 - **Ship-ready (AS-024):** all paths resolve through `immortals/config.py` (env-overridable, no
   machine-specific hard-coding); the AS personas ship in repo `agents/` (source of truth) and
   `immortals agents install` syncs them into the copilot agents dir. `<name>AS.md` is the locked
@@ -95,6 +95,24 @@ between them through a **local SQLite + MCP** memory substrate.
 
 ## 5. Decision log (ADR-style)
 > Append-only. Stable anchors; when superseded, keep the anchor and change the title.
+
+### [AS-033] Goal→plan orchestration endpoint (managerAS + a deterministic route planner)
+- Date: 2026-07-09
+- Status: accepted (implemented)
+- Context: The Console needs the full "manager orchestrates a team" flow from the UI: a plain-English
+  goal → a real multi-node `plan/v1` → a live DAG run. Two needs: a planner that works **without a
+  key** (so the DAG can be demoed/tested), and the real managerAS LLM planner.
+- Decision: `dashboard/planner.py` with two planners returning a validated `Plan` — `plan_via_route`
+  (deterministic: `registry.route(goal)` picks the top agents and chains them into a small pipeline;
+  no LLM) and `plan_via_manager` (prompts the managerAS persona via a provider to emit plan/v1 JSON,
+  then extracts + validates it). `POST /api/orchestrate` {goal, planner=route|llm, backend, provider,
+  model} builds the plan and runs it through the existing `RunManager` (background + WS streaming),
+  returning `{task_id, plan}`.
+- Rationale: `planner=route` + `backend=mock` gives a fully key-free, deterministic multi-node run
+  (demo + tests); `planner=llm` is the real manager. Reuses the write API/broker/WS unchanged.
+- Consequences: unblocks the Console's managerAS orchestration mode + live DAG. Follow-ups: plan
+  editing/approval before run; managerAS re-planning on node failure. Tests: `test_orchestrate.py`
+  (route planner, LLM planner via FakeProvider, end-to-end mock run).
 
 ### [AS-032] Projects API (kgraph-backed) + live tool/terminal streaming from ApiRunner
 - Date: 2026-07-09

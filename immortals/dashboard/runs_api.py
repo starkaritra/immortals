@@ -161,6 +161,32 @@ def attach_write_api(app, db_path: str) -> RunManager:
     def task_status(task_id: str) -> dict[str, Any]:
         return {"task_id": task_id, "status": manager.status.get(task_id, "unknown")}
 
+    @app.post("/api/orchestrate")
+    def orchestrate(body: dict = Body(...)) -> dict[str, Any]:
+        """Goal → managerAS/route plan → background orchestrator run. Returns the plan + task id."""
+        from .planner import plan_via_manager, plan_via_route
+        from immortals.runners.providers import get_provider
+
+        goal = (body.get("goal") or "").strip()
+        if not goal:
+            raise HTTPException(status_code=422, detail="body must include a non-empty 'goal'")
+        which = body.get("planner", "route")
+        try:
+            if which == "llm":
+                provider = get_provider(body.get("provider", "anthropic"))
+                plan = plan_via_manager(goal, provider, model=body.get("model"))
+            else:
+                plan = plan_via_route(goal)
+        except Exception as exc:  # planning/parse/validation failure
+            raise HTTPException(status_code=422, detail=f"planning failed: {exc}")
+
+        opts = {k: body[k] for k in ("backend", "provider", "model", "workspace", "approve", "project") if k in body}
+        try:
+            manager.start(plan.to_dict(), opts)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
+        return {"task_id": plan.task_id, "plan": plan.to_dict()}
+
     @app.websocket("/ws/tasks/{task_id}")
     async def stream_task(websocket: WebSocket, task_id: str) -> None:
         await websocket.accept()
