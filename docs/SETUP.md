@@ -94,6 +94,21 @@ MCP (recommended for token-limited work), register the MCP server — see §6.
 Each host needs two things: **(a)** an instruction file at the project root, and **(b)** the MCP
 servers registered. Both are generated for you under `portable/`.
 
+### 5.0 How to invoke a specific agent (per host)
+| Host | Call a specific agent (e.g. `coderAS`) | Mechanism |
+|---|---|---|
+| GitHub Copilot CLI | `/agent coderAS` (in-session) · `copilot --agent coderAS` (launch) · `/agent` to browse | native agent switch |
+| Claude Code | put personas in `.claude/agents/coderAS.md`; ask *"use the coderAS subagent"* or `@agent-coderAS` (auto-delegates too) | native subagents |
+| Cursor | define as a custom mode/agent in the picker, or reference via `.cursor/rules` | custom modes |
+| opencode | `@coderAS` mention, or configured `agent` in config | native agents/subagents |
+| Goose | package the persona as a recipe: `goose run --recipe coderAS.yaml` | recipes |
+| Codex CLI | no persona-switch — load `AGENTS.md` and name the agent in the prompt (*"act as coderAS…"*) | instruction file |
+| Gemini CLI | no persona-switch — load `GEMINI.md` and name the agent in the prompt | instruction file |
+
+Hosts with **native agents/subagents** switch by name; **instruction-file hosts** load one
+`AGENTS.md`/`GEMINI.md` and you name the agent in your prompt. Skills load the same way
+everywhere — lazily via the `as-skills` MCP server.
+
 ### 5.1 Pick and place the instruction file
 | Host | Copy this to your project root |
 |---|---|
