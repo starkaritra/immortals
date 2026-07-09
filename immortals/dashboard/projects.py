@@ -119,6 +119,28 @@ def _safe_file(root: Path, rel: str) -> Path:
     return candidate
 
 
+def _native_folder_dialog() -> str | None:
+    """Open a native OS folder picker on the engine host and return the chosen absolute path.
+
+    Runs a throwaway subprocess (its own Tk main loop) so it never blocks the server's event loop
+    or fights the main thread. Local-first: the person at the machine physically chooses the folder;
+    nothing lets a remote caller read arbitrary paths. Returns None if cancelled/unavailable.
+    """
+    code = (
+        "import tkinter as tk\n"
+        "from tkinter import filedialog\n"
+        "r = tk.Tk(); r.withdraw(); r.attributes('-topmost', True)\n"
+        "print(filedialog.askdirectory(title='Select a project folder') or '')\n"
+    )
+    try:
+        proc = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
+                              encoding="utf-8", errors="replace", timeout=300)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    out = (proc.stdout or "").strip()
+    return out.splitlines()[-1].strip() if out else None
+
+
 def attach_projects_api(app) -> None:
     @app.get("/api/projects")
     def get_projects() -> dict[str, Any]:
@@ -141,6 +163,11 @@ def attach_projects_api(app) -> None:
         base = _known_root(root)
         ctx = _run_kgraph(["recall"], cwd=str(base))
         return {"root": str(base), "context": ctx}
+
+    @app.post("/api/projects/browse")
+    def browse_folder() -> dict[str, Any]:
+        """Open a native folder picker on the engine host; returns the chosen path (or null)."""
+        return {"root": _native_folder_dialog()}
 
     @app.post("/api/projects")
     def register_project(body: dict = Body(...)) -> dict[str, Any]:

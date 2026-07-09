@@ -83,3 +83,25 @@ def test_unregistered_root_forbidden(client, tmp_path):
 def test_kgraph_absent_returns_empty(tmp_path, monkeypatch):
     monkeypatch.setenv("IMMORTALS_KGRAPH", str(tmp_path / "does_not_exist.py"))
     assert projmod.list_projects() == []
+
+
+def test_browse_returns_dialog_path(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(projmod, "_native_folder_dialog", lambda: str(tmp_path / "picked"))
+    assert client.post("/api/projects/browse").json()["root"] == str(tmp_path / "picked")
+
+
+def test_browse_cancelled_returns_null(client, monkeypatch):
+    monkeypatch.setattr(projmod, "_native_folder_dialog", lambda: None)
+    assert client.post("/api/projects/browse").json()["root"] is None
+
+
+def test_register_project(client, tmp_path):
+    newdir = tmp_path / "fresh"
+    newdir.mkdir()
+    r = client.post("/api/projects", json={"name": "Fresh", "root": str(newdir), "summary": "s"})
+    assert r.status_code == 200 and r.json()["ok"] is True
+
+
+def test_register_rejects_missing_dir(client, tmp_path):
+    r = client.post("/api/projects", json={"name": "X", "root": str(tmp_path / "nope")})
+    assert r.status_code == 400
