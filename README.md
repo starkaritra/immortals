@@ -349,6 +349,37 @@ manager-as-a-service API — see `design/prototype-frontend-handoff.md`.
 Versioned JSON, validated at every seam — in `immortals/contracts/schemas/`:
 `plan/v1`, `artifact/v1`, `registry/v1`, `event/v1`.
 
+## The Console API (powering Immortals Console)
+The engine also serves the HTTP/WebSocket API that the standalone GUI product
+[**Immortals Console**](https://github.com/starkaritra/immortals-console) is built on. Start it with
+`immortals dashboard --db runs.db --create --port 8756`. It has a **read half** and a **write half**
+(`immortals/dashboard/`):
+
+- **Read:** `GET /api/agents`, `/api/skills`, `/api/runs`, `/api/recall`; `DELETE /api/runs/{id}`.
+- **Write / live:** `POST /api/tasks` (a background run) + `WS /ws/tasks/{id}` (live event stream);
+  `POST /api/orchestrate` (goal → managerAS plan → DAG run); projects + authoring endpoints.
+- **Model providers (settings):** `GET /api/settings/catalog`, `GET/PUT/DELETE /api/settings/providers`,
+  `POST /api/settings/providers/test`, and Ollama `status`/`recommended`/`pull`. Keys are stored
+  server-side (perms-restricted JSON under the user's home) and **masked on read**.
+
+**All model providers are raw HTTP** (`immortals/runners/providers/` — Anthropic, OpenAI, Gemini,
+Ollama over stdlib `urllib`), so the engine needs **no vendor SDKs** — only `jsonschema` (core) +
+`fastapi`/`uvicorn` (the `dashboard` extra). Every OpenAI-compatible endpoint (local or hosted) is
+reachable by setting a custom `base_url`.
+
+## Packaging & releases (standalone binary)
+The engine ships as a **single self-contained binary** so end users need **no Python**:
+```pwsh
+pip install -e ".[dashboard]" pyinstaller
+pyinstaller packaging/immortals-engine.spec --noconfirm
+# → packaging/dist/immortals-engine/immortals-engine(.exe)
+```
+`packaging/engine_entry.py` points the frozen app at the bundled `registry/`, `agents/`, and
+`skills/` (via `IMMORTALS_HOME = sys._MEIPASS`). This binary is what the desktop app spawns as its
+sidecar. **CI/CD:** `.github/workflows/ci.yml` runs the test matrix on every push/PR;
+`release.yml` builds the binary per OS on a `v*` tag (or manual **Run workflow**) and attaches it to
+the GitHub Release. See the Console repo's `RELEASING.md` for the end-to-end two-repo release flow.
+
 ## Develop
 ```pwsh
 python -m venv .venv; .\.venv\Scripts\Activate.ps1
