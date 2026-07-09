@@ -63,3 +63,16 @@ Figure:       <path to saved plot>
 ## Handoff
 **experimentAS** owns the design, pre-registration, and causal interpretation; this skill
 produces the numbers and figures it reports.
+
+## Executable tooling
+`assets/analyze.py` computes the full statistics discipline above from a CSV/JSON results
+table: per-group mean/std/n, absolute + relative difference, a seeded bootstrap 95% CI,
+Cohen's d, and (if SciPy present) Welch-t + Mann–Whitney p-values, plus a bar-with-error-bars
+PNG (if matplotlib present). Effect size + CI are always reported; the p-value never alone.
+
+```
+python assets/analyze.py results.csv --metric score --group arm
+python assets/analyze.py results.json --metric latency --group arm --control A --experiment B --json
+```
+The `--seed`/`--iters` are logged as provenance. SciPy/matplotlib are optional — the script
+degrades gracefully without them.

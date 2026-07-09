@@ -59,3 +59,15 @@ End with a prioritized fix list (UNVERIFIED first — these can sink a submissio
 ## Handoff
 Reports integrity; **paperAS** decides how to fix wording and which references to keep.
 Use the **latex-build** skill afterward to confirm the corrected `.bib` still compiles.
+
+## Executable tooling
+`assets/resolve_refs.py` automates the existence + metadata checks (steps 1–3): it parses the
+`.bib`, resolves each entry via Crossref (DOI) or the arXiv API, and flags UNVERIFIED or
+metadata-mismatch entries. Stdlib-only; offline runs report everything UNVERIFIED (fail-safe).
+
+```
+python assets/resolve_refs.py refs.bib          # human report (exit 1 if any UNVERIFIED)
+python assets/resolve_refs.py refs.bib --json    # machine-readable
+```
+Use the script for the mechanical resolution pass, then apply human judgment for the
+claim–citation match (step 4), which the script does not attempt.

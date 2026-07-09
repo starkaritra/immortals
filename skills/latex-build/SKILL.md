@@ -75,3 +75,16 @@ bibtex <main>        # or:  biber <main>   (if the doc uses biblatex+biber)
 This skill produces the **PDF**. Content authorship, structure, and venue strategy remain
 with **paperAS**; poster layout/spec remains with the **paper-poster** skill (which calls
 this skill for its final beamerposter build).
+
+## Executable tooling
+`assets/build.py` runs this recipe deterministically: it auto-detects the engine (fontspec ->
+xelatex), prefers `latexmk` when present, else runs engine->bib->engine->engine, and on
+failure extracts the true first error (`!` line) from the `.log`. Stdlib-only; needs a TeX
+distribution on PATH.
+
+```
+python assets/build.py main.tex                 # auto engine, full build
+python assets/build.py main.tex --engine xelatex --json
+```
+Prefer the script over hand-running passes; fall back to the manual recipe above only when the
+script can't run (no TeX distro, or an exotic build).
