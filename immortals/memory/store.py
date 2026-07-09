@@ -293,6 +293,33 @@ class MemoryStore:
         ).fetchall()
         return [r["task_id"] for r in rows]
 
+    def delete_task(self, task_id: str) -> int:
+        """Hard-delete a run — its events + artifacts (+ any derived rows).
+
+        Deliberately bypasses the append-only trigger: this is an explicit user "delete run from
+        history" action, not part of normal execution. Single-writer (the local engine), so the
+        drop/recreate of the trigger is safe.
+        """
+        c = self._conn
+        c.execute("DROP TRIGGER IF EXISTS events_no_delete")
+        try:
+            n = c.execute("DELETE FROM events WHERE task_id = ?", (task_id,)).rowcount
+            c.execute("DELETE FROM artifacts WHERE task_id = ?", (task_id,))
+            for tbl, col in (("graph_nodes", "task_id"), ("graph_edges", "task_id"),
+                             ("embeddings", "ref_task")):
+                try:
+                    c.execute(f"DELETE FROM {tbl} WHERE {col} = ?", (task_id,))
+                except sqlite3.OperationalError:
+                    pass  # derived tables may not exist yet
+            c.commit()
+        finally:
+            c.execute(
+                "CREATE TRIGGER IF NOT EXISTS events_no_delete BEFORE DELETE ON events "
+                "BEGIN SELECT RAISE(ABORT, 'events is append-only'); END;"
+            )
+            c.commit()
+        return n
+
     def reconstruct(self, task_id: str) -> ReplayResult:
         """Fold the event log into a run state — the source-of-truth reconstruction."""
         events = self.events_for(task_id)

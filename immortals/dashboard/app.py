@@ -120,6 +120,13 @@ def create_app(db_path: str):
         with _store() as store:
             return DerivedMemory(store).graph(task_id)
 
+    @app.delete("/api/runs/{task_id}")
+    def delete_run(task_id: str) -> dict[str, Any]:
+        """Delete a run (events + artifacts) from history."""
+        with _store() as store:
+            deleted = store.delete_task(task_id)
+        return {"ok": True, "deleted_events": deleted}
+
     @app.get("/api/artifacts/{task_id}/{artifact_id}")
     def artifact(task_id: str, artifact_id: str) -> dict[str, Any]:
         """One artifact's content + provenance (the artifact-viewer view)."""

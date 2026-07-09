@@ -121,6 +121,14 @@ def test_skills_index(client):
     assert "skills" in data and isinstance(data["skills"], list)
 
 
+def test_delete_run(client):
+    assert client.get(f"/api/runs/{TASK}").status_code == 200
+    r = client.delete(f"/api/runs/{TASK}")
+    assert r.status_code == 200 and r.json()["ok"] is True and r.json()["deleted_events"] == 8
+    assert client.get(f"/api/runs/{TASK}").status_code == 404
+    assert [t["task_id"] for t in client.get("/api/runs").json()["tasks"]] == []
+
+
 def test_index_served(client):
     r = client.get("/")
     assert r.status_code == 200
