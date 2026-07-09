@@ -14,6 +14,10 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from immortals.memory import DerivedMemory, MemoryStore, ReplayResult
+from immortals.registry import Registry
+from immortals import config
+
+import json
 
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -77,6 +81,15 @@ def create_app(db_path: str):
     app = FastAPI(title="Immortals dashboard", version="0.1.0",
                   summary="Read-only inspector over an Immortals run store.")
 
+    # Local-first CORS: the Console SPA runs on a different port (Vite dev server / packaged shell),
+    # so browser fetch + WebSocket calls are cross-origin. No auth/credentials are used, so a
+    # permissive local policy is fine; tighten (or make env-driven) if ever exposed beyond localhost.
+    from fastapi.middleware.cors import CORSMiddleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+    )
+
     @contextmanager
     def _store() -> Iterator[MemoryStore]:
         store = MemoryStore(db_path)
@@ -136,6 +149,19 @@ def create_app(db_path: str):
         """The whole-store knowledge graph (or one task's, if ``task_id`` is given)."""
         with _store() as store:
             return DerivedMemory(store).graph(task_id)
+
+    @app.get("/api/agents")
+    def list_agents() -> dict[str, Any]:
+        """The agent catalogue (registry manifests) — powers the Console's agent sidebar."""
+        return {"agents": Registry.load().describe()}
+
+    @app.get("/api/skills")
+    def list_skills() -> dict[str, Any]:
+        """The generated skills index (`skills/INDEX.json`) — powers the Console's skill library."""
+        path = config.home() / "skills" / "INDEX.json"
+        if not path.exists():
+            return {"schema": "skills-index/v1", "count": 0, "skills": []}
+        return json.loads(path.read_text(encoding="utf-8"))
 
     @app.get("/", include_in_schema=False)
     def index() -> Any:

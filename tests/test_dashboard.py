@@ -109,6 +109,18 @@ def test_graph_endpoint(client):
     assert "nodes" in g and "edges" in g
 
 
+def test_agents_catalogue(client):
+    data = client.get("/api/agents").json()
+    names = {a["agent"] for a in data["agents"]}
+    assert "teachAS" in names and "coderAS" in names
+    assert all("when_to_use" in a for a in data["agents"])
+
+
+def test_skills_index(client):
+    data = client.get("/api/skills").json()
+    assert "skills" in data and isinstance(data["skills"], list)
+
+
 def test_index_served(client):
     r = client.get("/")
     assert r.status_code == 200
