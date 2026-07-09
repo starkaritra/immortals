@@ -20,7 +20,6 @@ from .base import (
     ToolCall,
     ToolSpec,
     Usage,
-    _require,
 )
 
 
@@ -76,7 +75,9 @@ class OllamaProvider(ModelProvider):
     default_model = "llama3.1"
 
     def __init__(self, host: str | None = None):
-        self._host = host or os.environ.get("OLLAMA_HOST")
+        self._host = (host or os.environ.get("OLLAMA_HOST") or "http://localhost:11434").rstrip("/")
+        if not self._host.startswith("http"):
+            self._host = "http://" + self._host
 
     def complete(
         self,
@@ -89,20 +90,33 @@ class OllamaProvider(ModelProvider):
         max_tokens: int = 4096,
         on_text: TextStream | None = None,
     ) -> ProviderResponse:
-        sdk = _require("ollama", "ollama")
-        client = sdk.Client(host=self._host) if self._host else sdk.Client()
-        kwargs: dict[str, Any] = {
+        # Talk to Ollama's HTTP API directly (stdlib only) so local models work with no extra SDK.
+        import urllib.error
+        import urllib.request
+
+        body: dict[str, Any] = {
             "model": model or self.default_model,
             "messages": _to_wire_messages(system, messages),
+            "stream": False,
             "options": {"temperature": temperature, "num_predict": max_tokens},
         }
         if tools:
-            kwargs["tools"] = _to_wire_tools(tools)
+            body["tools"] = _to_wire_tools(tools)
+        req = urllib.request.Request(
+            self._host + "/api/chat",
+            data=json.dumps(body).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
         try:
-            result = client.chat(**kwargs)
-        except Exception as exc:  # pragma: no cover - network/SDK errors
-            raise ProviderError(f"ollama call failed: {exc}") from exc
-        payload = result.model_dump() if hasattr(result, "model_dump") else dict(result)
+            with urllib.request.urlopen(req, timeout=600) as r:
+                payload = json.loads(r.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", "replace")[:300]
+            raise ProviderError(f"ollama HTTP {exc.code}: {detail}") from exc
+        except Exception as exc:
+            raise ProviderError(
+                f"could not reach Ollama at {self._host} ({exc}); is it running? (ollama serve)"
+            ) from exc
         resp = _parse_response(payload)
         if not resp.model:
             resp.model = model or self.default_model
