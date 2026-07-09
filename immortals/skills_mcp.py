@@ -27,6 +27,55 @@ from typing import Any
 
 PROTOCOL_VERSION = "2024-11-05"
 
+# Tiny stopword set so free-text routing matches on meaningful tokens only (mirrors the
+# registry loader's tokenizer, kept local to avoid a cross-module import in this standalone server).
+_STOPWORDS = frozenset({
+    "the", "and", "for", "with", "that", "this", "from", "into", "your", "you", "are", "was",
+    "out", "can", "will", "use", "used", "using", "about", "what", "how", "why", "when", "who",
+    "a", "an", "to", "of", "in", "on", "or", "is", "it", "as", "by", "be", "do", "my", "me", "i",
+    "skill", "help", "need",
+})
+
+
+def _tokenize(text: str) -> set[str]:
+    import re
+    return {t for t in re.split(r"[^a-z0-9]+", (text or "").lower())
+            if len(t) > 2 and t not in _STOPWORDS}
+
+
+def rank_skills(need: str, skills: list[dict], top: int | None = None) -> list[dict]:
+    """Rank skills against a free-text ``need`` (deterministic, no LLM). Lets a lone agent load
+    the ONE right skill body instead of scanning/loading several — the solo-agent efficiency win.
+
+    Scores: skill-name token/phrase hit (heavy), description-token overlap (light). Returns
+    ``[{name, score, owner_agent, description, argument_hint}, …]`` sorted by score desc, name.
+    """
+    need_lc = (need or "").lower()
+    need_tokens = _tokenize(need)
+    ranked = []
+    for s in skills:
+        name = s.get("name", "")
+        score = 0
+        name_phrase = name.replace("-", " ")
+        name_tokens = _tokenize(name_phrase)
+        if name_phrase and name_phrase in need_lc:
+            score += 6
+        elif name_tokens and name_tokens <= need_tokens:
+            score += 4
+        else:
+            score += 2 * len(need_tokens & name_tokens)
+        score += len(need_tokens & _tokenize(s.get("description", "")))
+        if score > 0:
+            ranked.append({
+                "name": name,
+                "score": score,
+                "owner_agent": s.get("owner_agent"),
+                "description": s.get("description", ""),
+                "argument_hint": s.get("argument_hint"),
+            })
+    ranked.sort(key=lambda r: (-r["score"], r["name"]))
+    return ranked[:top] if top else ranked
+
 
 def resolve_skills_dir(argv: list[str]) -> Path:
     """--skills-dir wins, else $AS_SKILLS_DIR, else the repo's skills/ next to this package,
@@ -60,6 +109,11 @@ TOOLS: list[tuple[str, str, dict[str, str], list[str]]] = [
      "Load one supporting file for a skill (Tier-3): a references/ or assets/ path relative to "
      "the skill directory (e.g. 'references/equations.md', 'assets/resolve_refs.py').",
      {"name": "string", "path": "string"}, ["name", "path"]),
+    ("skill_route",
+     "Rank skills against a free-text need (deterministic) so you load the ONE most relevant "
+     "skill body instead of scanning several. Returns ranked {name, score, owner_agent}. Call "
+     "this, then skill_get the top result. Optionally scope to one owner agent.",
+     {"need": "string", "agent": "string", "top": "integer"}, ["need"]),
 ]
 TOOL_NAMES = {t[0] for t in TOOLS}
 
@@ -127,6 +181,16 @@ def call_tool(skills_dir: Path, name: str, arguments: dict[str, Any] | None) -> 
                 "has_assets": bool(s.get("assets")),
             } for s in skills]
             return json.dumps({"count": len(lean), "skills": lean}, ensure_ascii=False), False
+
+        if name == "skill_route":
+            skills = _load_index(skills_dir)
+            agent = args.get("agent")
+            if agent:
+                skills = [s for s in skills if s.get("owner_agent") == agent]
+            top = args.get("top")
+            top = top if isinstance(top, int) and top > 0 else 3
+            ranked = rank_skills(args["need"], skills, top=top)
+            return json.dumps({"need": args["need"], "matches": ranked}, ensure_ascii=False), False
 
         if name == "skill_get":
             d = _safe_skill_dir(skills_dir, args["name"])

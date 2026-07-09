@@ -20,7 +20,7 @@ def test_initialize_and_tools_list():
     assert init["result"]["serverInfo"]["name"] == "as-skills"
     tl = dispatch(SKILLS, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
     names = {t["name"] for t in tl["result"]["tools"]}
-    assert names == {"skill_list", "skill_get", "skill_get_reference"}
+    assert names == {"skill_list", "skill_get", "skill_get_reference", "skill_route"}
 
 
 def test_skill_list_returns_directory():
@@ -66,3 +66,20 @@ def test_reference_path_traversal_blocked():
 def test_skill_name_traversal_blocked():
     _data, err = _call("skill_get", {"name": "../agents"})
     assert err
+
+
+def test_skill_route_ranks_by_need():
+    data, err = _call("skill_route", {"need": "verify the citations in my bibliography", "top": 3})
+    assert not err
+    assert data["matches"], "expected at least one match"
+    assert data["matches"][0]["name"] == "citation-verify"
+    # deterministic: sorted by score desc
+    scores = [m["score"] for m in data["matches"]]
+    assert scores == sorted(scores, reverse=True)
+
+
+def test_skill_route_scoped_by_agent():
+    data, err = _call("skill_route", {"need": "make a conference poster", "agent": "paperAS"})
+    assert not err
+    assert all(m["owner_agent"] == "paperAS" for m in data["matches"])
+    assert "paper-poster" in {m["name"] for m in data["matches"]}

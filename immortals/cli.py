@@ -329,6 +329,26 @@ def cmd_route(args: argparse.Namespace) -> int:
     return 0 if ranked else 1
 
 
+def cmd_skills(args: argparse.Namespace) -> int:
+    """List the skill directory, or rank skills against a --need (the solo-agent lazy-load path)."""
+    from immortals.skills_mcp import resolve_skills_dir, _load_index, rank_skills
+    skills = _load_index(resolve_skills_dir([]))
+    if args.agent:
+        skills = [s for s in skills if s.get("owner_agent") == args.agent]
+    indent = 2 if args.pretty else None
+    if args.skills_action == "route":
+        if not args.need:
+            print(json.dumps({"error": "skills route requires --need"}))
+            return 2
+        matches = rank_skills(args.need, skills, top=args.top or 3)
+        print(json.dumps({"need": args.need, "matches": matches}, indent=indent, default=str))
+        return 0 if matches else 1
+    lean = [{"name": s.get("name"), "owner_agent": s.get("owner_agent"),
+             "description": s.get("description", "")} for s in skills]
+    print(json.dumps({"count": len(lean), "skills": lean}, indent=indent, default=str))
+    return 0
+
+
 def cmd_recall(args: argparse.Namespace) -> int:
     """Semantic retrieval / graph navigation over the derived memory (Phase 6, AS-023).
 
@@ -501,6 +521,16 @@ def build_parser() -> argparse.ArgumentParser:
     route.add_argument("--top", type=int, help="Return at most this many candidates.")
     route.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     route.set_defaults(func=cmd_route)
+
+    skills = sub.add_parser("skills",
+                            help="List or route the skill catalogue (the lazy-load directory).")
+    skills.add_argument("skills_action", nargs="?", choices=["list", "route"], default="list",
+                        help="`list` the skill directory, or `route` skills against a --need.")
+    skills.add_argument("--need", help="Free-text need to rank skills against (for `route`).")
+    skills.add_argument("--agent", help="Scope to one owner agent (e.g. paperAS).")
+    skills.add_argument("--top", type=int, help="Return at most this many skills (route).")
+    skills.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
+    skills.set_defaults(func=cmd_skills)
 
     recall = sub.add_parser("recall",
                             help="Semantic search / graph navigation over derived memory (Phase 6).")
