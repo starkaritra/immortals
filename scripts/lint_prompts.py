@@ -33,7 +33,10 @@ SKILLS_DIR = REPO / "skills"
 # Rough token estimate: ~4 chars/token is the standard back-of-envelope for English.
 CHARS_PER_TOKEN = 4
 # Soft budget for the always-loaded SKILL.md body (Arm B). Warn, don't fail, above this.
-BODY_TOKEN_BUDGET = 1500
+# Rationale: SKILL.md should stay lean and push deep implementation detail into references/
+# (progressive disclosure). Rich end-to-end workflow skills legitimately reach a few thousand
+# tokens; the budget flags artifacts that should consider splitting, not a hard limit.
+BODY_TOKEN_BUDGET = 3500
 
 # Skills vendored unmodified from anthropics/skills (see skills/PROVENANCE.md). We do NOT
 # restructure or re-budget these — upstream owns them — so deep checks are skipped for them.
