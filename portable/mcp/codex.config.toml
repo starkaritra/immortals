@@ -1,0 +1,9 @@
+# Codex MCP registration — add to ~/.codex/config.toml
+
+[mcp_servers.as-skills]
+command = "python"
+args = ["-m", "immortals.skills_mcp"]
+
+[mcp_servers.as-memory]
+command = "python"
+args = ["-m", "immortals.memory.mcp_server"]

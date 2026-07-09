@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "as-skills": {
+      "command": "python",
+      "args": [
+        "-m",
+        "immortals.skills_mcp"
+      ]
+    },
+    "as-memory": {
+      "command": "python",
+      "args": [
+        "-m",
+        "immortals.memory.mcp_server"
+      ]
+    }
+  }
+}

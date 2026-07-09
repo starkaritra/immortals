@@ -63,3 +63,18 @@ def test_skill_index_is_fresh():
     fresh = mod.dumps(mod.build_index())
     on_disk = (REPO / "skills" / "INDEX.json").read_text(encoding="utf-8")
     assert fresh == on_disk, "skills/INDEX.json is stale — run: python scripts/gen_skill_index.py"
+
+
+def test_portable_adapters_are_fresh():
+    """portable/ adapters must match a fresh generation from registry + index."""
+    spec = importlib.util.spec_from_file_location(
+        "gen_adapters", REPO / "scripts" / "gen_adapters.py")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+    stale = []
+    for rel, content in mod.build_all().items():
+        p = REPO / "portable" / rel
+        if not p.exists() or p.read_text(encoding="utf-8") != content:
+            stale.append(rel)
+    assert not stale, f"portable adapters stale: {stale} — run: python scripts/gen_adapters.py"
