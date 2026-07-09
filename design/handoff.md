@@ -35,7 +35,11 @@ between them through a **local SQLite + MCP** memory substrate.
   `CopilotRunner` Backend A — `--output-format json` usage, `mcp_config` + `env_extra` injection),
   `orchestrator/` (deterministic DAG executor: validation, topo-order, seam validation, event
   trail with `run_id`, storage-agnostic sinks, guardrails + approval gate + registry approval
-  floor, resume, bounded-parallel scheduler, partial re-runs), `memory/` (`MemoryStore` — append-
+  floor, resume, bounded-parallel scheduler, partial re-runs), `runners/providers/` (**AS-030** —
+  normalized `ModelProvider` seam + Anthropic/OpenAI/Gemini/Ollama adapters + `FakeProvider`) and
+  `runners/api_backend.py` + `runners/tools.py` (**`ApiRunner` Backend B** — the standalone,
+  Copilot-independent backend: persona→system prompt, direct provider calls, self-driven tool loop
+  over a workspace-confined approval-gated harness), `memory/` (`MemoryStore` — append-
   only `event/v1` log + `(task_id,id)` artifacts + `notes` KV + agent-namespaced `facts`, schema v3
   w/ migration, append-only triggers, `reconstruct`; **`derived.py`** — `DerivedMemory` projects a
   knowledge graph + a semantic vector index; **`embedding.py`** — pluggable `Embedder` seam + zero-dep
@@ -44,7 +48,7 @@ between them through a **local SQLite + MCP** memory substrate.
   `dashboard` — AS-013..024), and **`dashboard/`** (read-only web inspector — prototype frontend; a
   FastAPI app + single static page with 4 views over a run store; FastAPI/uvicorn behind the optional
   `[dashboard]` extra; the read-half seed of the Phase-8 API — see `design/prototype-frontend-handoff.md`).
-  Tests: **170 passing** (159 + 11 dashboard).
+  Tests: **212 passing** (190 + 22 for the AS-030 provider layer & ApiRunner/ToolHarness).
 - **Ship-ready (AS-024):** all paths resolve through `immortals/config.py` (env-overridable, no
   machine-specific hard-coding); the AS personas ship in repo `agents/` (source of truth) and
   `immortals agents install` syncs them into the copilot agents dir. `<name>AS.md` is the locked
@@ -91,6 +95,37 @@ between them through a **local SQLite + MCP** memory substrate.
 
 ## 5. Decision log (ADR-style)
 > Append-only. Stable anchors; when superseded, keep the anchor and change the title.
+
+### [AS-030] Backend B — standalone direct-API AgentRunner + provider-adapter layer
+- Date: 2026-07-09
+- Status: accepted (implemented)
+- Context: The only real worker backend was `CopilotRunner`, which shells out to the `copilot` CLI —
+  coupling the whole suite to Copilot. The end-user product (Immortals Console) must be a
+  **standalone**, Copilot-independent app (bring-your-own API key or a local Ollama). Per the
+  Console's CON-004 (Split) + CON-007, this Copilot-independence is an **engine** concern: a new
+  runner, not a UI feature.
+- Options considered:
+  - **New `AgentRunner` implementing direct provider calls** — pros: reuses the AS-009 swappable
+    seam; orchestrator/contracts/memory/guardrails unchanged; testable with a fake provider. cons:
+    the engine now owns a tool-call loop + a tool harness.
+  - **Embed an OSS agent host / LangGraph** — pros: inherit a tool ecosystem. cons: heavier dep,
+    UX/semantics shaped by their model, integration friction; the AS-009 note already earmarked this
+    as a *later* option, not the standalone MVP.
+- Decision: add **`ApiRunner`** (`immortals/runners/api_backend.py`, `name="api"`) plus a
+  provider-adapter layer (`immortals/runners/providers/`) with **all four wrappers** — Anthropic,
+  OpenAI, Gemini, Ollama — behind one normalized `ModelProvider` interface, and a deterministic
+  `FakeProvider` for tests. The runner loads the persona from `agents/<name>.md` (frontmatter
+  stripped) as the system prompt, composes the user turn with upstream artifacts fenced as **data**
+  (AS-003 injection containment), and drives the tool-call loop itself via a workspace-confined,
+  approval-gated `ToolHarness` (`immortals/runners/tools.py`). Wired into the CLI as
+  `run --backend api [--provider {anthropic,openai,gemini,ollama}] [--model …]`.
+- Rationale: satisfies the standalone requirement at the correct layer with zero change to the
+  orchestrator/contracts; provider SDKs are **optional extras** (`pip install "immortals[anthropic]"`
+  etc.), keeping the lean core (jsonschema-only) intact; keys are read from env, never logged.
+- Consequences: unblocks Immortals Console's whole build (its Track 1). Follow-ups: streaming is
+  best-effort per adapter (WebSocket streaming is the Console's Phase-8 API concern); live
+  provider round-trips are gated behind env keys (skipped in CI). Tests: `test_providers.py` (pure
+  translation, no network) + `test_api_backend.py` (loop/harness via FakeProvider) — +22 tests.
 
 ### [AS-028] Rebrand to "Immortals" — product/package rename (Tiers 1+2), AS personas retained
 - **Date:** 2026-06-27

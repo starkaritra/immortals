@@ -20,7 +20,8 @@ from immortals.memory import MemoryStore, ReplayResult
 from immortals.orchestrator import Guardrails, Orchestrator, RunResult
 from immortals.orchestrator.runner import PlanError
 from immortals.registry import Registry
-from immortals.runners import CopilotRunner, MockRunner
+from immortals.runners import CopilotRunner, MockRunner, ApiRunner, ToolHarness
+from immortals.runners.providers import PROVIDER_NAMES
 from immortals.runners.base import AgentRunner
 
 
@@ -48,11 +49,20 @@ def _memory_mcp_config(db_path: str) -> str:
 
 
 def _make_runner(backend: str, mcp_config: str | None = None,
-                 env_extra: dict[str, str] | None = None) -> AgentRunner:
+                 env_extra: dict[str, str] | None = None,
+                 provider: str = "anthropic", model: str | None = None,
+                 workspace: str | None = None, approve: bool = False) -> AgentRunner:
     if backend == "copilot":
         return CopilotRunner(allow_all_tools=True, mcp_config=mcp_config, env_extra=env_extra)
     if backend == "mock":
         return MockRunner()
+    if backend == "api":
+        # Standalone backend (AS-030): a workspace enables the tool harness; --approve lets the
+        # model actually write/run (default read-only). No workspace = pure-chat agents.
+        harness = None
+        if workspace:
+            harness = ToolHarness(workspace, approve=(lambda a, d: True) if approve else None)
+        return ApiRunner(provider, model=model, harness=harness)
     raise SystemExit(f"error: unknown backend {backend!r}")
 
 
@@ -214,7 +224,11 @@ def cmd_run(args: argparse.Namespace) -> int:
         return 2
     mcp_config = _memory_mcp_config(args.db) if (args.share_memory and args.db) else None
     env_extra = {"IMMORTALS_MEMORY_DB": str(Path(args.db).resolve())} if (args.share_memory and args.db) else None
-    runner = _make_runner(args.backend, mcp_config=mcp_config, env_extra=env_extra)
+    runner = _make_runner(args.backend, mcp_config=mcp_config, env_extra=env_extra,
+                          provider=getattr(args, "provider", "anthropic"),
+                          model=getattr(args, "model", None),
+                          workspace=getattr(args, "workspace", None),
+                          approve=getattr(args, "approve", False))
     progress = None if getattr(args, "quiet", False) else _ProgressReporter()
     if progress:
         progress.header(plan, args.backend)
@@ -471,8 +485,11 @@ def build_parser() -> argparse.ArgumentParser:
     src = run.add_mutually_exclusive_group()
     src.add_argument("--plan-file", help="Path to a plan/v1 JSON file.")
     src.add_argument("--plan", help="Inline plan/v1 JSON string.")
-    run.add_argument("--backend", choices=["copilot", "mock"], default="copilot",
-                     help="Invocation backend (default: copilot).")
+    run.add_argument("--backend", choices=["copilot", "mock", "api"], default="copilot",
+                     help="Invocation backend (default: copilot). 'api' = standalone model-provider backend.")
+    run.add_argument("--provider", choices=list(PROVIDER_NAMES), default="anthropic",
+                     help="Model provider for --backend api (default: anthropic).")
+    run.add_argument("--model", help="Model id for --backend api (default: the provider's default).")
     run.add_argument("--workspace", help="Directory workers may access (--add-dir).")
     run.add_argument("--db", help="SQLite path to persist the event log + artifacts (event-sourced run).")
     run.add_argument("--share-memory", action="store_true",
