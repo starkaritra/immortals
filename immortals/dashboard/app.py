@@ -141,5 +141,10 @@ def create_app(db_path: str):
     def index() -> Any:
         return FileResponse(_STATIC_DIR / "index.html")
 
+    # Phase-8 write half (AS-031): POST /api/tasks + WS /ws/tasks/{id}. Additive; read API above
+    # is unchanged. Kept in a separate module so the read-only surface stays isolated.
+    from .runs_api import attach_write_api
+    app.state.runs = attach_write_api(app, db_path)
+
     app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
     return app

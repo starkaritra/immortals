@@ -163,3 +163,20 @@ def test_string_provider_name_resolves(tmp_path):
     runner = ApiRunner("fake", agents_dir=agents)
     art = runner.run(_req())
     assert art.provenance["provider"] == "fake"
+
+
+def test_apirunner_through_orchestrator():
+    """Backend B plugs into the real Orchestrator like any other runner (uses the real teachAS persona)."""
+    from immortals.orchestrator import Orchestrator
+    from immortals.registry import Registry
+
+    fake = FakeProvider(turns=[ProviderResponse(text="a clear lesson", usage=Usage(3, 3),
+                                                stop_reason="stop")])
+    orch = Orchestrator(runner=ApiRunner(fake), registry=Registry.load())
+    plan = {"schema": "plan/v1", "task_id": "int-t", "goal": "teach",
+            "nodes": [{"id": "n1", "agent": "teachAS", "prompt": "teach eigenvalues",
+                       "produces": "lesson", "inputs": []}]}
+    result = orch.run(plan)
+    assert result.status == "completed"
+    assert result.artifacts["lesson"].content["response"] == "a clear lesson"
+    assert result.artifacts["lesson"].provenance["backend"] == "api"

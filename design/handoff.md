@@ -48,7 +48,8 @@ between them through a **local SQLite + MCP** memory substrate.
   `dashboard` — AS-013..024), and **`dashboard/`** (read-only web inspector — prototype frontend; a
   FastAPI app + single static page with 4 views over a run store; FastAPI/uvicorn behind the optional
   `[dashboard]` extra; the read-half seed of the Phase-8 API — see `design/prototype-frontend-handoff.md`).
-  Tests: **212 passing** (190 + 22 for the AS-030 provider layer & ApiRunner/ToolHarness).
+  Tests: **219 passing** (190 + 22 for AS-030 provider layer/ApiRunner/ToolHarness + 7 for AS-031
+  write API & the ApiRunner↔orchestrator integration test).
 - **Ship-ready (AS-024):** all paths resolve through `immortals/config.py` (env-overridable, no
   machine-specific hard-coding); the AS personas ship in repo `agents/` (source of truth) and
   `immortals agents install` syncs them into the copilot agents dir. `<name>AS.md` is the locked
@@ -95,6 +96,35 @@ between them through a **local SQLite + MCP** memory substrate.
 
 ## 5. Decision log (ADR-style)
 > Append-only. Stable anchors; when superseded, keep the anchor and change the title.
+
+### [AS-031] Phase-8 write API — manager-as-a-service (POST /api/tasks + live WebSocket)
+- Date: 2026-07-09
+- Status: accepted (implemented)
+- Context: The read-only `dashboard/` was designed as the *read half* of the Phase-8
+  manager-as-a-service API; with Immortals Console now committed (Split architecture, its CON-004),
+  the write half is in scope: submit a task and watch it run, over HTTP. Runs are long-lived, so a
+  request must not block on a whole DAG.
+- Options considered:
+  - **Background thread + thread→async broker for a WebSocket** — pros: non-blocking submit; live
+    events reuse the orchestrator's existing `event_sink`; persists to the same store the read API
+    serves; no new heavy dep. cons: we own a small thread/loop bridge.
+  - **Synchronous POST that blocks until done** — simple, but useless for minutes-long runs.
+  - **A separate task queue (Celery/RQ) / process** — robust at scale, but heavyweight for a
+    local-first single-user app now (defer).
+- Decision: add `immortals/dashboard/runs_api.py` (separate module so the read surface stays
+  isolated): `POST /api/tasks` starts an orchestrator run in a background thread and returns the
+  task id immediately; `WS /ws/tasks/{task_id}` streams `event/v1` records via a `RunBroker`
+  (`loop.call_soon_threadsafe`), replaying the persisted backlog on connect then streaming live
+  (de-duped by `event_id`) so connect-timing never loses events; `GET /api/tasks/{id}/status` is a
+  thin status probe. Default backend `mock` (deterministic, no external calls); the frontend passes
+  `backend="api"`. Wired via `attach_write_api(app, db_path)` from `create_app`.
+- Rationale: smallest non-blocking design that reuses the orchestrator + event store unchanged;
+  read endpoints untouched; testable now with FastAPI `TestClient` (incl. websockets) and the mock
+  backend — no keys/network.
+- Consequences: this is the API the Console frontend consumes (its Track 3). Follow-ups: auth,
+  cancellation, and multi-run scale-out (task queue) are deferred; a run-store-per-task vs shared
+  store policy can evolve. Tests: `test_write_api.py` (+6) and an ApiRunner-through-Orchestrator
+  integration test (+1).
 
 ### [AS-030] Backend B — standalone direct-API AgentRunner + provider-adapter layer
 - Date: 2026-07-09
