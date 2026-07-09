@@ -20,10 +20,15 @@ orchestration system; the AS agents are "the immortals" it commands.*
 - **Workers** — the existing `~/.copilot/agents/*.md` personas, invoked through a swappable
   `AgentRunner` (Backend A = headless `copilot` today; LangGraph/ACP later).
 - **Skills** (`skills/`) — reusable, self-contained capability packs the agents invoke on demand
-  (each a folder with a `SKILL.md` plus any `assets/`/`references/`). The suite ships:
-  `lecture-notes`, `paper-explainer`, `paper-poster`, `prep-interview`, `prep-presentation`,
-  `present-pitch-script`, and `resume-optimizer`. These mirror `~/.copilot/skills/` so the
-  capability set is versioned alongside the agents.
+  (each a folder with a `SKILL.md` plus any `assets/`/`references/`). The suite ships native
+  packs (`lecture-notes`, `paper-explainer`, `paper-poster`, `prep-interview`,
+  `prep-presentation`, `present-pitch-script`, `resume-optimizer`, plus agent-specific tools
+  like `git-pr-workflow`, `latex-build`, `citation-verify`, `literature-search`,
+  `data-analysis-plots`, `interactive-explorable`, `novelty-log`, `patent-claim-drafter`,
+  `prior-art-search`, `plan-synthesis-report`) alongside packs vendored from
+  [`anthropics/skills`](https://github.com/anthropics/skills) (`skill-creator`, `docx`, `pdf`,
+  `xlsx`, `mcp-builder`, `webapp-testing`, and more). See `skills/PROVENANCE.md` for the full
+  map. These mirror `~/.copilot/skills/` so the capability set is versioned with the agents.
 - **Memory** — local-first SQLite (append-only `event/v1` log + persisted artifacts + a shared
   `notes` KV; runs are reconstructable by folding the log), exposed over a zero-dep MCP server.
 
