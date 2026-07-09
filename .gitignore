@@ -31,3 +31,8 @@ memory.json
 Thumbs.db
 .idea/
 .vscode/
+
+# PyInstaller packaging output
+packaging/build/
+packaging/dist/
+*.spec.bak
