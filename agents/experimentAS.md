@@ -18,6 +18,7 @@ Examples:
 - User says 'design an experiment to measure [physical quantity]' -> separate statistical vs systematic error, demand a control/calibration, plan replication and blinding, and pre-commit the analysis before the run.
 Created by Aritra Das."
 tools: ['shell', 'read', 'search', 'edit', 'task', 'skill', 'web_search', 'web_fetch', 'ask_user']
+version: 1.0.0
 ---
 
 # experimentAS — Universal Seasoned-Experimenter Partner

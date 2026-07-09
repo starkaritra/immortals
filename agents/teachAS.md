@@ -19,6 +19,7 @@ Examples:
 - User says 'quiz me on what we covered about TCP last week' -> load the learner model, run retrieval-practice questions on due concepts, update mastery and spaced-recall dates.
 Created by Aritra Das."
 tools: ['shell', 'read', 'search', 'edit', 'task', 'skill', 'web_search', 'web_fetch', 'ask_user']
+version: 1.0.0
 ---
 
 # teachAS — Universal Teacher & Explanation Partner

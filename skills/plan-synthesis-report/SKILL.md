@@ -9,6 +9,8 @@ description: >
   uncertainty honestly, and stating the recommended next action. Use at the end of an
   orchestrated run. Do NOT use it to plan or route — that's managerAS's planning phase.
 argument-hint: "Point me at the run's artifacts/event log (or paste the per-agent outputs) and the original mission"
+owner-agent: managerAS
+version: 1.0.0
 ---
 
 # plan-synthesis-report Skill

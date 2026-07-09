@@ -2,6 +2,8 @@
 name: resume-optimizer
 description: "Use when a user shares a resume (file/path/text) together with a target job posting link and wants the resume tailored, optimized, aligned, or ATS-tuned for that job. Also triggers on: optimize my resume for this JD, tailor my CV to this role, make my resume match this posting, align my resume to this job, and on requests for similar/related job openings to apply to. Do NOT use for cover letters, LinkedIn profile rewrites, or generic resume-from-scratch requests unless a target job link is also provided."
 argument-hint: "Paste a job posting URL and point me to your resume file (e.g. main.tex)"
+owner-agent: prepAS
+version: 1.0.0
 ---
 
 # Resume Optimizer Skill

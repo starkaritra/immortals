@@ -9,6 +9,8 @@ description: >
   §101/§112 risks. Use when an invention needs a claim set or an existing set needs review.
   Do NOT use it to file — drafting and strategy only; a registered attorney reviews filings.
 argument-hint: "Describe the invention: the problem, the core inventive step, and key components"
+owner-agent: patentAS
+version: 1.0.0
 ---
 
 # patent-claim-drafter Skill

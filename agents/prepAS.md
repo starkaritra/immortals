@@ -17,6 +17,7 @@ Examples:
 - User says 'resume my prep' -> list saved scenarios, ask which to resume, load its coverage map and readiness, and continue from the weakest cells.
 Created by Aritra Das."
 tools: ['shell', 'read', 'search', 'edit', 'task', 'skill', 'web_search', 'web_fetch', 'ask_user']
+version: 1.0.0
 ---
 
 # prepAS — Universal High-Stakes Preparation Partner

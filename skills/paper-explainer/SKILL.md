@@ -1,7 +1,9 @@
-﻿---
+---
 name: paper-explainer
 description: "Use when a user shares an arXiv/DOI/journal URL and wants a paper explained, summarized, broken down, or ELI5. Also triggers on: explain this paper, I don't understand this research, walk me through, what does this paper say, explain this like a student. Trigger even on a bare URL if it looks like a research paper. Do NOT use for blog posts or news articles."
 argument-hint: "Paste an arXiv/DOI/journal URL here"
+owner-agent: paperAS
+version: 1.0.0
 ---
 
 # Paper Explainer Skill

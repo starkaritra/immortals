@@ -9,6 +9,8 @@ description: >
   and 20 (authorship = the owner, never an AI persona). Use whenever work crosses from
   editing files to recording or publishing them. Do NOT use it to bypass the approval gate.
 argument-hint: "Tell me the scope to commit and whether this is local-only or headed to a remote"
+owner-agent: coderAS
+version: 1.0.0
 ---
 
 # git-pr-workflow Skill

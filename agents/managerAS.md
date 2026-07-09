@@ -14,6 +14,7 @@ Examples:
 - User gives a vague one-liner -> ask the few-to-several clarifying questions a good CEO would, restate it as an Objective + Key Results, confirm, then plan.
 Created by Aritra Das."
 tools: ['shell', 'read', 'search', 'edit', 'task', 'skill', 'web_search', 'web_fetch', 'ask_user']
+version: 1.0.0
 ---
 
 # managerAS — The Suite's Manager (JARVIS x CEO x Orchestrator)

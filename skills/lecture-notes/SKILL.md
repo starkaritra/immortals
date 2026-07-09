@@ -2,6 +2,8 @@
 name: lecture-notes
 description: "Use when a user shares a YouTube (or similar) lecture video or playlist URL from a university/research source (Stanford, MIT, CMU, Berkeley, DeepMind, Harvard, etc.) and wants study notes, detailed notes, a breakdown, or a summary to learn from. Also triggers on: 'make notes from this lecture', 'notes for this course/playlist', 'summarize this lecture to learn it', 'explain this lecture video', 'turn this talk into notes'. Trigger on a bare lecture/playlist URL that looks educational. Do NOT use for entertainment videos, news, music, or non-educational clips, and do NOT use for papers (use paper-explainer for arXiv/DOI)."
 argument-hint: "Paste a lecture or playlist URL (Stanford/MIT/etc.)"
+owner-agent: teachAS
+version: 1.0.0
 ---
 
 # Lecture Notes Skill

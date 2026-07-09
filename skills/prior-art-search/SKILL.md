@@ -9,6 +9,8 @@ description: >
   assessing novelty (§102) and obviousness (§103) risk. Use before drafting or filing. Do
   NOT treat results as a legal clearance — a registered attorney makes the call.
 argument-hint: "Describe the invention's inventive step and the key technical features to search on"
+owner-agent: patentAS
+version: 1.0.0
 ---
 
 # prior-art-search Skill

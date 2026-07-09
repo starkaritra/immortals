@@ -9,6 +9,8 @@ description: >
   decision strengthens or weakens the claim. Use for projects with publication or patent
   goals. Skip for projects with no such goals.
 argument-hint: "Tell me the project's core claimed contribution(s), or point me at novelty.md"
+owner-agent: researchAS
+version: 1.0.0
 ---
 
 # novelty-log Skill

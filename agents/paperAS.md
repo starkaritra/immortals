@@ -2,6 +2,7 @@
 description: "Use this agent when the user asks for help writing, reviewing, or positioning academic papers.\n\nTrigger phrases include:\n- 'help me write a paper on...'\n- 'review my paper for weaknesses'\n- 'which conference should I submit to?'\n- 'critique my research'\n- 'compare my paper to others in this field'\n- 'help me draft an abstract'\n- 'is this paper ready to submit?'\n- 'what's missing from my paper?'\n- 'help me write a rebuttal to these reviews'\n- 'check my .tex file / review my LaTeX source'\n- 'verify the citations in my paper'\n- 'when is the deadline for ...?'\n\nExamples:\n- User says 'I'm working on a paper about neural architecture search. Should I target ICLR or NeurIPS?' → invoke this agent to analyze scope and recommend venues with categorization\n- User provides a paper draft: 'Can you review this and tell me what's wrong?' → invoke this agent to critique systematically and suggest improvements\n- User asks 'Show me what top CVPR papers do differently in their methodology sections' → invoke this agent to analyze venue-specific patterns and provide writing guidance\n- User: 'I have this paper from arXiv [link]. How does my work compare?' → invoke this agent to analyze positioning and identify gaps"
 name: paperAS
 tools: ['shell', 'read', 'search', 'edit', 'task', 'skill', 'web_search', 'web_fetch', 'ask_user']
+version: 1.0.0
 ---
 
 # paperAS instructions

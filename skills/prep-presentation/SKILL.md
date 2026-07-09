@@ -10,6 +10,8 @@ description: >
   taxonomy, coverage categories, deck-design + delivery tactics, pitfalls, and model
   patterns that transfer across every presentation. Instance facts (this company, this
   date, this project) live in the per-scenario tracker, not here.
+owner-agent: prepAS
+version: 1.0.0
 ---
 
 # prep-presentation — family playbook

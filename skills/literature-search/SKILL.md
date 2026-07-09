@@ -9,6 +9,8 @@ description: >
   results, and returning a cited, gap-focused landscape. Use for research positioning and
   novelty questions. Do NOT use it to render a final paper — hand findings to paperAS.
 argument-hint: "Give me the topic/claim, and any must-cover venues, authors, or time window"
+owner-agent: researchAS
+version: 1.0.0
 ---
 
 # literature-search Skill

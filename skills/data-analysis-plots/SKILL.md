@@ -9,6 +9,8 @@ description: >
   correcting for multiplicity, and rendering clear figures. Use when experiment output needs
   analysis or visualization. Do NOT use it to design the experiment — that's experimentAS.
 argument-hint: "Point me at the results file (CSV/JSON) and name the metric + the control/experiment columns"
+owner-agent: experimentAS
+version: 1.0.0
 ---
 
 # data-analysis-plots Skill

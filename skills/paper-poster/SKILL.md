@@ -15,6 +15,8 @@ description: >
   use paperAS itself; for a spoken talk script use present-pitch-script; for a slide deck
   hand off to presentAS.
 argument-hint: "Path/URL to the accepted paper + the conference name (e.g. 'poster.pdf NeurIPS 2026')"
+owner-agent: paperAS
+version: 1.0.0
 ---
 
 # paper-poster — Conference Poster Designer & Builder

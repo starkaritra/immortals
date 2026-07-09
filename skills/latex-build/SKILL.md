@@ -9,6 +9,8 @@ description: >
   error, and producing a clean PDF. Use whenever a .tex/.bib artifact needs to become a PDF
   or a build is failing. Do NOT use it to write paper content — that stays with paperAS.
 argument-hint: "Point me at the main .tex file (and its dir); tell me the engine if you have a preference"
+owner-agent: paperAS
+version: 1.0.0
 ---
 
 # latex-build Skill

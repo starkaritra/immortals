@@ -10,6 +10,8 @@ description: >
   manipulate a concept, not just read it. Do NOT use it for production app UI (that's
   frontend work).
 argument-hint: "Name the concept and the one variable/relationship you want the learner to feel"
+owner-agent: teachAS
+version: 1.0.0
 ---
 
 # interactive-explorable Skill

@@ -9,6 +9,8 @@ description: >
   entries, and flagging claim–citation mismatches. Use before submission or whenever a
   reference list needs an integrity pass. Do NOT use it to write new prose.
 argument-hint: "Point me at the .bib file (and the .tex that cites it, if you want claim-matching)"
+owner-agent: paperAS
+version: 1.0.0
 ---
 
 # citation-verify Skill
