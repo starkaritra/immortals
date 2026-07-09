@@ -48,8 +48,7 @@ between them through a **local SQLite + MCP** memory substrate.
   `dashboard` — AS-013..024), and **`dashboard/`** (read-only web inspector — prototype frontend; a
   FastAPI app + single static page with 4 views over a run store; FastAPI/uvicorn behind the optional
   `[dashboard]` extra; the read-half seed of the Phase-8 API — see `design/prototype-frontend-handoff.md`).
-  Tests: **219 passing** (190 + 22 for AS-030 provider layer/ApiRunner/ToolHarness + 7 for AS-031
-  write API & the ApiRunner↔orchestrator integration test).
+  Tests: **227 passing** (219 + 8 for AS-032 projects API & ApiRunner event streaming).
 - **Ship-ready (AS-024):** all paths resolve through `immortals/config.py` (env-overridable, no
   machine-specific hard-coding); the AS personas ship in repo `agents/` (source of truth) and
   `immortals agents install` syncs them into the copilot agents dir. `<name>AS.md` is the locked
@@ -96,6 +95,30 @@ between them through a **local SQLite + MCP** memory substrate.
 
 ## 5. Decision log (ADR-style)
 > Append-only. Stable anchors; when superseded, keep the anchor and change the title.
+
+### [AS-032] Projects API (kgraph-backed) + live tool/terminal streaming from ApiRunner
+- Date: 2026-07-09
+- Status: accepted (implemented)
+- Context: The Console needs project-scoped work (a project = a local folder the agents operate in),
+  a file-tree view, and Codex-style live streaming of the agent's tool calls / terminal output into
+  the chat. Two engine gaps: no project concept exposed, and `ApiRunner` ran its tool loop silently
+  (only the final artifact surfaced).
+- Decision:
+  - **kgraph is the project context store** (owner's choice): projects come from the per-user kgraph
+    knowledge map (`config.projects_source()`, env `IMMORTALS_KGRAPH`), not a new JSON store. New
+    `dashboard/projects.py`: `GET /api/projects` (list), `/tree` (pruned, confined file tree),
+    `/file` (confined read), `/context` (kgraph recall for the project), `POST /api/projects`
+    (register/refresh a project's kgraph map). Browsing is restricted to registered project roots +
+    a path-traversal guard.
+  - **`ApiRunner` gains an `on_event` hook** emitting `agent_message` / `tool_call` / `tool_result`
+    during the loop. The write API's `RunManager` wires it to the `RunBroker`, so tool/terminal
+    activity streams over the same `WS /ws/tasks/{id}`. `POST /api/tasks` accepts `project` (→ the
+    agent's workspace = tool-harness root).
+- Rationale: reuses kgraph (no duplicate project store); streaming reuses the existing broker/WS with
+  zero orchestrator change; file access is least-privilege (registered roots only).
+- Consequences: unblocks the Console's project selector + file tree + tool-in-chat. Follow-ups:
+  project file *watch*/refresh, and persisting tool events to the log (currently live-only). Tests:
+  `test_projects_api.py` (kgraph stubbed via env) + ApiRunner `on_event` test.
 
 ### [AS-031] Phase-8 write API — manager-as-a-service (POST /api/tasks + live WebSocket)
 - Date: 2026-07-09

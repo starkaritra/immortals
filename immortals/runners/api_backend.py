@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Callable
 
 from immortals import config
 from immortals.contracts.models import Artifact
@@ -51,6 +51,7 @@ class ApiRunner(AgentRunner):
         harness: "ToolHarness | None" = None,
         agents_dir=None,
         provider_kwargs: dict[str, Any] | None = None,
+        on_event: "Callable[[dict], None] | None" = None,
     ):
         self.provider: ModelProvider = (
             get_provider(provider, **(provider_kwargs or {})) if isinstance(provider, str) else provider
@@ -61,6 +62,16 @@ class ApiRunner(AgentRunner):
         self.max_iterations = max_iterations
         self.harness = harness
         self._agents_dir = agents_dir
+        # Optional live observer: receives {type: agent_message|tool_call|tool_result, ...} so a UI
+        # can draw the agent's reasoning + tool/terminal activity as it happens (Codex-style).
+        self._on_event = on_event
+
+    def _emit(self, event: dict[str, Any]) -> None:
+        if self._on_event is not None:
+            try:
+                self._on_event(event)
+            except Exception:  # noqa: BLE001 - observing must never break the run
+                pass
 
     # -- prompt assembly ---------------------------------------------------------------
 
@@ -120,12 +131,20 @@ class ApiRunner(AgentRunner):
                 model_used = resp.model or model_used
                 stop_reason = resp.stop_reason
 
+                if resp.text:
+                    self._emit({"type": "agent_message", "agent": request.agent, "text": resp.text})
+
                 if resp.tool_calls and self.harness is not None:
                     messages.append(ChatMessage(role="assistant", content=resp.text,
                                                 tool_calls=resp.tool_calls))
                     for call in resp.tool_calls:
-                        messages.append(ChatMessage(role="tool", tool_call_id=call.id,
-                                                    content=self._dispatch(call)))
+                        self._emit({"type": "tool_call", "agent": request.agent, "tool": call.name,
+                                    "call_id": call.id, "arguments": call.arguments})
+                        result = self._dispatch(call)
+                        self._emit({"type": "tool_result", "agent": request.agent, "tool": call.name,
+                                    "call_id": call.id, "content": result[:4000],
+                                    "ok": not result.startswith("ERROR:")})
+                        messages.append(ChatMessage(role="tool", tool_call_id=call.id, content=result))
                     if token_budget is not None and total.total_tokens >= token_budget:
                         final_text = resp.text
                         stop_reason = "token_budget_exhausted"

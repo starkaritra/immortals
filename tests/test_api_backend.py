@@ -165,8 +165,28 @@ def test_string_provider_name_resolves(tmp_path):
     assert art.provenance["provider"] == "fake"
 
 
+def test_on_event_streams_tool_activity(tmp_path):
+    agents = _persona(tmp_path)
+    (tmp_path / "ws").mkdir()
+    (tmp_path / "ws" / "note.txt").write_text("42", encoding="utf-8")
+    harness = ToolHarness(tmp_path / "ws")
+    events: list[dict] = []
+    fake = FakeProvider(turns=[
+        ProviderResponse(text="let me check", tool_calls=[
+            ToolCall(id="c1", name="read_file", arguments={"path": "note.txt"})]),
+        ProviderResponse(text="it is 42", stop_reason="stop"),
+    ])
+    ApiRunner(fake, agents_dir=agents, harness=harness, on_event=events.append).run(_req())
+    types = [e["type"] for e in events]
+    assert "agent_message" in types
+    assert "tool_call" in types and "tool_result" in types
+    tc = next(e for e in events if e["type"] == "tool_call")
+    assert tc["tool"] == "read_file" and tc["arguments"] == {"path": "note.txt"}
+    tr = next(e for e in events if e["type"] == "tool_result")
+    assert tr["ok"] is True and "42" in tr["content"]
+
+
 def test_apirunner_through_orchestrator():
-    """Backend B plugs into the real Orchestrator like any other runner (uses the real teachAS persona)."""
     from immortals.orchestrator import Orchestrator
     from immortals.registry import Registry
 

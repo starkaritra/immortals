@@ -60,3 +60,14 @@ def copilot_mcp_config_path() -> Path:
     """The copilot MCP config file. Override: ``IMMORTALS_MCP_CONFIG``."""
     env = os.environ.get("IMMORTALS_MCP_CONFIG")
     return Path(env).expanduser() if env else Path.home() / ".copilot" / "mcp-config.json"
+
+
+def projects_source() -> Path:
+    """The kgraph CLI used as the **project context store** (list of projects + per-project map).
+
+    Projects in the Console are local filesystem folders that kgraph already tracks (keyed by git
+    remote / repo root). We read them by shelling out to this CLI. Override:
+    ``IMMORTALS_KGRAPH`` — defaults to the per-user kgraph install.
+    """
+    env = os.environ.get("IMMORTALS_KGRAPH")
+    return Path(env).expanduser() if env else Path.home() / ".copilot" / "agents" / "kgraph" / "kgraph.py"

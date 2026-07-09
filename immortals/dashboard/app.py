@@ -172,5 +172,9 @@ def create_app(db_path: str):
     from .runs_api import attach_write_api
     app.state.runs = attach_write_api(app, db_path)
 
+    # Projects API (AS-032): kgraph-backed project list + file tree, for workspace-scoped agent work.
+    from .projects import attach_projects_api
+    attach_projects_api(app)
+
     app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
     return app

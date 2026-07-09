@@ -38,7 +38,7 @@ _TERMINAL = {"completed", "failed", "blocked"}
 _END = "__end__"  # synthetic control message closing a WebSocket stream
 
 
-def _build_runner(opts: dict[str, Any]):
+def _build_runner(opts: dict[str, Any], on_event=None):
     """Construct a worker backend from request options (mirrors ``cli._make_runner``)."""
     backend = opts.get("backend", "mock")
     if backend == "mock":
@@ -50,7 +50,8 @@ def _build_runner(opts: dict[str, Any]):
         workspace = opts.get("workspace")
         if workspace:
             harness = ToolHarness(workspace, approve=(lambda a, d: True) if opts.get("approve") else None)
-        return ApiRunner(opts.get("provider", "anthropic"), model=opts.get("model"), harness=harness)
+        return ApiRunner(opts.get("provider", "anthropic"), model=opts.get("model"),
+                         harness=harness, on_event=on_event)
     raise ValueError(f"unknown backend {backend!r}")
 
 
@@ -111,8 +112,13 @@ class RunManager:
     def _run(self, plan: Plan, opts: dict[str, Any]) -> None:
         store = MemoryStore(self.db_path)
         status = "failed"
+        # A selected project is a local folder = the agent's workspace (tool harness root).
+        if opts.get("project") and not opts.get("workspace"):
+            opts = {**opts, "workspace": opts["project"]}
+        # Stream the agent's live reasoning + tool/terminal activity to WebSocket subscribers.
+        on_event = lambda ev: self.broker.publish(plan.task_id, ev)  # noqa: E731
         try:
-            runner = _build_runner(opts)
+            runner = _build_runner(opts, on_event=on_event)
             orch = Orchestrator(
                 runner=runner,
                 registry=Registry.load(),
@@ -142,7 +148,7 @@ def attach_write_api(app, db_path: str) -> RunManager:
         plan_doc = body.get("plan")
         if not isinstance(plan_doc, dict):
             raise HTTPException(status_code=422, detail="body must include a 'plan' (plan/v1) object")
-        opts = {k: body[k] for k in ("backend", "provider", "model", "workspace", "approve") if k in body}
+        opts = {k: body[k] for k in ("backend", "provider", "model", "workspace", "approve", "project") if k in body}
         try:
             task_id = manager.start(plan_doc, opts)
         except RuntimeError as exc:
