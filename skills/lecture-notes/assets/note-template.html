@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE_SHORT}}</title>
+
+<!-- Fonts: Atkinson Hyperlegible (body, max legibility) + Caveat (distinctive headings) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=Caveat:wght@500;700&display=swap" rel="stylesheet">
+
+<!-- MathJax (equations) -->
+<script>
+  window.MathJax = { tex: { inlineMath: [['\\(','\\)']], displayMath: [['$$','$$'],['\\[','\\]']] },
+                     svg: { fontCache: 'global' } };
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+<!-- Mermaid (diagrams) — neutral theme so diagrams sit on light "paper" cards -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    if (window.mermaid) mermaid.initialize({ startOnLoad: true, theme: 'neutral', securityLevel: 'loose',
+      themeVariables: { fontFamily: 'Atkinson Hyperlegible, sans-serif', fontSize: '15px' } });
+  });
+</script>
+
+<style>
+  :root{
+    --ink:#e9e6dc; --muted:#9aa6b8; --line:#333a46; --bg:#14161b; --soft:#1f232d;
+    --accent:#6ea8fe; --accent2:#c8a2ff;
+    --ok:#5fd48a; --warn:#f2b45c; --danger:#f5837f; --info:#6ea8fe; --think:#c8a2ff;
+    --paper:#f7f2e6; --paperink:#2b2721; --paperline:#dccfb4;
+    --hand:'Atkinson Hyperlegible', system-ui, -apple-system, sans-serif; --head:'Caveat', cursive;
+    --maxw:860px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;color:var(--ink);background:var(--bg);
+    background-image:linear-gradient(rgba(255,255,255,.028) 1px, transparent 1px);
+    background-size:100% 32px;
+    font-family:var(--hand);line-height:1.7;font-size:18px;-webkit-font-smoothing:antialiased}
+  .wrap{display:grid;grid-template-columns:262px minmax(0,var(--maxw));gap:48px;
+    max-width:1200px;margin:0 auto;padding:32px 28px 120px}
+  nav.toc{position:sticky;top:24px;align-self:start;max-height:calc(100vh - 48px);
+    overflow:auto;font-size:15px;border-right:1px solid var(--line);padding-right:16px}
+  nav.toc .kicker{font-family:var(--head);font-size:19px;letter-spacing:.02em;color:var(--accent2);
+    font-weight:700;margin:0 0 8px;text-transform:none}
+  nav.toc a{display:block;color:var(--muted);text-decoration:none;padding:3px 0;border-radius:6px}
+  nav.toc a:hover{color:var(--accent)}
+  nav.toc a.sub{padding-left:14px;font-size:14px}
+  nav.toc .prog{margin-top:18px;font-size:13.5px;color:var(--muted)}
+  article{min-width:0}
+  .hero{border:1px solid var(--line);border-radius:16px;padding:26px 30px;
+    background:linear-gradient(135deg,#242b40,#2e2442);margin-bottom:8px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  .series{font-family:var(--hand);font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);font-weight:700}
+  h1{font-family:var(--head);font-size:47px;line-height:1.03;margin:8px 0 6px;font-weight:700}
+  .meta{color:var(--muted);font-size:15px;margin-top:12px;display:flex;flex-wrap:wrap;gap:8px 14px}
+  .meta a{color:var(--accent);text-decoration:none}
+  .meta .pill{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:999px;padding:3px 12px}
+  h2{font-family:var(--head);font-size:36px;margin:46px 0 4px;padding-top:14px;font-weight:700;border-top:1px solid var(--line)}
+  h2 .num{color:var(--accent);margin-right:8px}
+  h3{font-family:var(--head);font-size:28px;margin:26px 0 4px;color:#e7ebf3;font-weight:700}
+  h4{font-family:var(--hand);font-size:15px;margin:18px 0 4px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;font-weight:700}
+  p{margin:11px 0}
+  ul,ol{margin:11px 0;padding-left:24px} li{margin:6px 0}
+  code{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:5px;padding:1px 6px;
+    font-family:"SF Mono",Consolas,Menlo,monospace;font-size:15px;color:#e7d8b8}
+  pre{background:#0c0f16;color:#e6edf7;border:1px solid var(--line);border-radius:12px;padding:16px 18px;overflow:auto;
+    font-family:"SF Mono",Consolas,Menlo,monospace;font-size:14px;line-height:1.55}
+  pre code{background:none;border:none;color:inherit;padding:0}
+  .lead{font-size:21px;color:#d7d3c8}
+  strong{color:#fff;font-weight:700}
+  a.ref{color:var(--accent);text-decoration:none;font-weight:700}
+  a.ref:hover{text-decoration:underline}
+  .box{border-left:4px solid var(--info);background:var(--soft);border-radius:0 12px 12px 0;
+    padding:15px 20px;margin:20px 0}
+  .box .lbl{font-family:var(--head);font-size:17px;letter-spacing:.02em;font-weight:700;margin-bottom:2px;display:block;text-transform:none}
+  .box p:first-of-type{margin-top:2px} .box p:last-child{margin-bottom:0}
+  .box.why{border-color:var(--accent);background:#182338}       .box.why .lbl{color:#8fc0ff}
+  .box.intuition{border-color:var(--think);background:#241a36}  .box.intuition .lbl{color:#d3b3ff}
+  .box.analogy{border-color:#43cdd4;background:#122e31}         .box.analogy .lbl{color:#6fe0e6}
+  .box.check{border-color:var(--ok);background:#132c1e}         .box.check .lbl{color:#7fe6a4}
+  .box.pitfall{border-color:var(--danger);background:#331b1b}   .box.pitfall .lbl{color:#ff9b97}
+  .box.eqn{border-color:var(--warn);background:#302616}         .box.eqn .lbl{color:#ffc978}
+  .box.prereq{border-color:#8b9bb4;background:#1b2029}          .box.prereq .lbl{color:#c2ccdb}
+  details.check{margin-top:8px} details.check summary{cursor:pointer;color:#7fe6a4;font-weight:700;font-size:16px}
+  details.check[open] summary{margin-bottom:6px}
+  figure{margin:24px 0;text-align:center;background:var(--paper);color:var(--paperink);
+    border:1px solid var(--paperline);border-radius:14px;padding:18px 18px 14px;
+    box-shadow:0 2px 0 rgba(0,0,0,.4),0 12px 30px rgba(0,0,0,.4)}
+  figure .mermaid{display:flex;justify-content:center;background:transparent}
+  figcaption{font-family:var(--hand);font-size:15px;color:#6d6555;margin-top:10px;font-style:italic}
+  .svgcard{background:var(--paper);color:var(--paperink);border:1px solid var(--paperline);border-radius:14px;padding:18px}
+  figure .svgcard{background:transparent;border:none;padding:0;box-shadow:none}
+  table{border-collapse:collapse;width:100%;margin:20px 0;font-size:16px}
+  th,td{border:1px solid var(--line);padding:10px 13px;text-align:left;vertical-align:top}
+  th{background:var(--soft);font-weight:700;color:#fff}
+  .tt{color:var(--accent);font-weight:700;white-space:nowrap}
+  ol.refs{font-size:16px} ol.refs li{margin:10px 0}
+  .foot{margin-top:60px;border-top:1px solid var(--line);padding-top:16px;color:var(--muted);font-size:14px}
+  .navbtns{display:flex;justify-content:space-between;margin-top:32px;gap:12px}
+  .navbtns a{flex:1;border:1px solid var(--line);border-radius:12px;padding:13px 16px;text-decoration:none;color:var(--ink);background:var(--soft)}
+  .navbtns a:hover{border-color:var(--accent);color:var(--accent)}
+  .navbtns .r{text-align:right}
+  @media print{
+    nav.toc,.navbtns{display:none}
+    .wrap{display:block;max-width:none;padding:0}
+    body{background:#fff;color:#141414;font-size:12pt;line-height:1.5;background-image:none;
+      font-family:'Atkinson Hyperlegible', system-ui, sans-serif}
+    h1,h2,h3{color:#111} h2{border-top:1px solid #ccc}
+    .hero{background:none;border:none;box-shadow:none;padding:0}
+    .lead{color:#333} strong{color:#000}
+    .box{background:#f3f3f3 !important;color:#141414;break-inside:avoid}
+    .box .lbl{color:#333 !important}
+    figure{box-shadow:none;break-inside:avoid;border-color:#ccc}
+    th{color:#000} td,th{border-color:#bbb}
+    pre{white-space:pre-wrap;background:#f0f0f0;color:#111;border-color:#ccc}
+    code{color:#333}
+    a,a.ref{color:#000;text-decoration:underline}
+  }
+  @media (max-width:880px){
+    .wrap{grid-template-columns:1fr;gap:0} nav.toc{position:static;border-right:none;max-height:none;margin-bottom:24px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ===================== TOC (one <a> per section; .sub for subsections) ===================== -->
+<nav class="toc">
+  <p class="kicker">On this page</p>
+  <a href="#hook">Why this matters</a>
+  <a href="#prereq">Prerequisites (30-sec)</a>
+  <a href="#s1">1 · {{SECTION_1_TITLE}}</a>
+  <a href="#s1a" class="sub">1.1 {{SUBSECTION}}</a>
+  <a href="#worked">{{N}} · Worked example</a>
+  <a href="#trace">{{N}} · End-to-end trace</a>
+  <a href="#recap">Recap (as questions)</a>
+  <a href="#glossary">Glossary</a>
+  <a href="#refs">References</a>
+  <p class="prog">{{SERIES}} · Note {{IDX}} of {{TOTAL}}</p>
+</nav>
+
+<!-- ===================== ARTICLE ===================== -->
+<article>
+
+<div class="hero">
+  <div class="series">{{SOURCE}} · {{COURSE}} · {{LECTURE_LABEL}}</div>
+  <h1>{{TITLE}}</h1>
+  <p class="lead">{{ONE_LINE_WHAT_AND_WHY}}</p>
+  <div class="meta">
+    <span class="pill">🎓 {{PRESENTER}}</span>
+    <span class="pill">⏱ {{DURATION}}</span>
+    <a class="pill" href="{{VIDEO_URL}}" target="_blank">▶ Watch</a>
+  </div>
+</div>
+
+<!-- ---------- HOOK: WHY before HOW ---------- -->
+<section id="hook">
+<div class="box why">
+  <span class="lbl">Why this matters</span>
+  <p>{{Motivate the problem this lecture solves, concretely, before defining anything.}}</p>
+</div>
+<div class="box analogy">
+  <span class="lbl">Running analogy</span>
+  <p>{{One analogy, committed to and reused throughout the note.}}</p>
+</div>
+</section>
+
+<!-- ---------- ENRICHMENT #7: Prerequisites 30-sec refresher ---------- -->
+<div class="box prereq" id="prereq">
+  <span class="lbl">Prerequisites — 30-second refresher</span>
+  <p>You'll follow this note smoothly if these are fresh. Each is one line; skim, and dive into any that feel shaky.</p>
+  <ul>
+    <li><strong>{{Concept A}}</strong> — {{one-line reminder + why it's needed here}}.</li>
+    <li><strong>{{Concept B}}</strong> — {{one-line reminder}}.</li>
+  </ul>
+</div>
+
+<!-- ================= SECTION (repeat; number them) ================= -->
+<h2 id="s1"><span class="num">1.</span>{{SECTION_1_TITLE}}</h2>
+<p>{{One concrete example BEFORE the general rule. Name the concept AFTER building intuition.}}</p>
+
+<h3 id="s1a">1.1 {{SUBSECTION_TITLE}}</h3>
+<p>{{...}}</p>
+
+<div class="box eqn">
+  <span class="lbl">Key equation — {{name}}</span>
+  <p>$$ {{LaTeX}} $$</p>
+  <p>{{Interpret every symbol the moment it appears.}}</p>
+</div>
+
+<figure>
+<div class="mermaid">
+flowchart LR
+    A["quote labels with special chars/(parens)/&lt;br/&gt;"] --> B["node"]
+</div>
+</figure>
+<figcaption>{{Caption: what the diagram shows and the one idea to take away.}}</figcaption>
+
+<div class="box pitfall">
+  <span class="lbl">Common misconception</span>
+  <p>{{Name the wrong mental model, then dismantle it.}}</p>
+</div>
+
+<details class="check"><summary>✓ Check yourself — {{question that forces production, not recognition}}</summary>
+<p>{{answer}}</p></details>
+
+<!-- ================= ENRICHMENT #2: Worked numeric micro-example ================= -->
+<h2 id="worked"><span class="num">{{N}}.</span>Worked example — one tiny case, by hand</h2>
+<p>Numbers make it click. We compute the smallest honest instance of {{the core mechanic}}, showing every step.</p>
+<div class="box eqn">
+  <span class="lbl">Step-by-step with real numbers</span>
+  <p>{{Set up a tiny concrete case (small vectors / small input). Show each arithmetic step and the intermediate values, ending in the result. Use $$...$$ for the math.}}</p>
+</div>
+<details class="check"><summary>✓ Check yourself — redo the last step if {{one input}} changed to {{value}}</summary>
+<p>{{answer}}</p></details>
+
+<!-- ================= ENRICHMENT #4: End-to-end trace ================= -->
+<h2 id="trace"><span class="num">{{N}}.</span>End-to-end trace — follow one concrete instance</h2>
+<p>Now follow a single concrete {{input/example}} all the way through, tracking the {{state / shapes / values}} at each step — this is where people get lost.</p>
+<table>
+  <tr><th>Step</th><th>What happens</th><th>{{State / shape / value}}</th></tr>
+  <tr><td>0 · input</td><td>{{...}}</td><td class="tt">{{...}}</td></tr>
+  <tr><td>1 · {{...}}</td><td>{{...}}</td><td class="tt">{{...}}</td></tr>
+  <tr><td>… → output</td><td>{{...}}</td><td class="tt">{{...}}</td></tr>
+</table>
+<div class="box intuition">
+  <span class="lbl">What the trace reveals</span>
+  <p>{{The one structural insight the trace makes obvious.}}</p>
+</div>
+
+<!-- ================= RECAP as questions ================= -->
+<h2 id="recap">Recap — rebuild it yourself</h2>
+<p>Don't re-read. Answer from memory; if one is shaky, jump back to the linked section.</p>
+<div class="box check">
+  <span class="lbl">Reconstruct the chain</span>
+  <ol>
+    <li>{{Question}} <a class="ref" href="#s1">(§1)</a></li>
+    <li>{{Question}} <a class="ref" href="#worked">(worked example)</a></li>
+    <li>Teach it back: explain {{core idea}} to a beginner in three sentences.</li>
+  </ol>
+</div>
+
+<!-- ================= GLOSSARY ================= -->
+<h2 id="glossary">Glossary</h2>
+<table>
+  <tr><th>Term</th><th>Plain meaning</th></tr>
+  <tr><td>{{term}}</td><td>{{plain-language definition}}</td></tr>
+</table>
+
+<!-- ================= REFERENCES ================= -->
+<h2 id="refs">References &amp; further study</h2>
+<h4>Sources named in the lecture</h4>
+<ol class="refs">
+  <li>{{Author (year). <strong>Title.</strong> <a class="ref" href="URL">link</a> — one-line relevance.}}</li>
+</ol>
+<h4>Best next things to watch / read</h4>
+<ol class="refs">
+  <li>{{Follow-up resource with link.}}</li>
+</ol>
+
+<div class="navbtns">
+  <a href="{{PREV_HREF}}">◀ {{PREV_LABEL}}</a>
+  <a class="r" href="{{NEXT_HREF}}">{{NEXT_LABEL}} ▶</a>
+</div>
+
+<div class="foot">
+  {{COURSE}} — study notes · Note {{IDX}} · Built for learning (WHY→HOW · worked example · trace · check-yourself).
+  Diagrams: Mermaid · Equations: MathJax · Print this page to export a PDF.
+</div>
+
+</article>
+</div>
+</body>
+</html>

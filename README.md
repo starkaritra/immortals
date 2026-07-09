@@ -19,6 +19,11 @@ orchestration system; the AS agents are "the immortals" it commands.*
   DAG, validates every seam contract, runs guardrails, and mediates all inter-agent I/O.
 - **Workers** — the existing `~/.copilot/agents/*.md` personas, invoked through a swappable
   `AgentRunner` (Backend A = headless `copilot` today; LangGraph/ACP later).
+- **Skills** (`skills/`) — reusable, self-contained capability packs the agents invoke on demand
+  (each a folder with a `SKILL.md` plus any `assets/`/`references/`). The suite ships:
+  `lecture-notes`, `paper-explainer`, `paper-poster`, `prep-interview`, `prep-presentation`,
+  `present-pitch-script`, and `resume-optimizer`. These mirror `~/.copilot/skills/` so the
+  capability set is versioned alongside the agents.
 - **Memory** — local-first SQLite (append-only `event/v1` log + persisted artifacts + a shared
   `notes` KV; runs are reconstructable by folding the log), exposed over a zero-dep MCP server.
 
