@@ -1,0 +1,55 @@
+name: Release engine
+
+# Tag the engine (e.g. `git tag v0.1.0 && git push --tags`) to build a standalone, per-OS engine
+# binary with PyInstaller and attach it to the GitHub Release. The desktop app (immortals-console)
+# consumes these binaries at its own release time (pinned via its `.engine-version`).
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            asset: immortals-engine-windows-x64.zip
+          - os: macos-latest
+            asset: immortals-engine-macos-arm64.tar.gz
+          - os: ubuntu-latest
+            asset: immortals-engine-linux-x64.tar.gz
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install (engine + PyInstaller)
+        run: pip install -e ".[dashboard]" pyinstaller
+      - name: Build engine
+        run: pyinstaller packaging/immortals-engine.spec --noconfirm --distpath packaging/dist --workpath packaging/build
+      - name: Smoke test
+        shell: bash
+        run: |
+          # engine binary must start and serve; kill after a couple seconds.
+          cd packaging/dist/immortals-engine
+          BIN=./immortals-engine; [ -f ./immortals-engine.exe ] && BIN=./immortals-engine.exe
+          "$BIN" agents >/dev/null
+      - name: Archive
+        shell: bash
+        run: |
+          cd packaging/dist
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            7z a "../../${{ matrix.asset }}" immortals-engine >/dev/null
+          else
+            tar czf "../../${{ matrix.asset }}" immortals-engine
+          fi
+      - name: Attach to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.asset }}

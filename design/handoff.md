@@ -96,6 +96,23 @@ between them through a **local SQLite + MCP** memory substrate.
 ## 5. Decision log (ADR-style)
 > Append-only. Stable anchors; when superseded, keep the anchor and change the title.
 
+### [AS-036] CI/CD — GitHub Actions: pytest matrix + PyInstaller engine binary per OS on `v*` tag
+- Date: 2026-07-09
+- Status: accepted (implemented)
+- Context: The engine must ship as a **standalone sidecar binary** (no user Python) that the desktop
+  app bundles. Need reproducible per-OS builds on release, plus fast CI on every push.
+- Decision: `.github/workflows/ci.yml` — matrix `{ubuntu, windows}`, `pip install -e ".[dev,dashboard]"`
+  + `pytest -q`. `.github/workflows/release.yml` — on `push: tags: v*`, matrix `{windows→.zip,
+  macos→.tar.gz, linux→.tar.gz}`: `pip install -e ".[dashboard]" pyinstaller`, run the
+  `packaging/immortals-engine.spec`, **smoke test** the frozen binary (`immortals-engine agents`
+  exercises bundled assets), archive `packaging/dist/immortals-engine/`, attach via
+  `softprops/action-gh-release@v2` (`permissions: contents: write`).
+- Rationale: providers are SDK-free (AS-035 refactor), so the bundle only needs jsonschema +
+  fastapi/uvicorn — a small, deterministic PyInstaller payload. Asset names are the contract the
+  console's release consumes (see CON-009).
+- Consequences: engine releases are the upstream artifact; the console pins a tag via
+  `.engine-version` and downloads these assets at its own release time. Follow-up: code-signing.
+
 ### [AS-035] Model-provider settings — configurable keys/endpoints + OpenAI-compatible custom providers
 - Date: 2026-07-09
 - Status: accepted (implemented)
