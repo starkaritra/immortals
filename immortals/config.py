@@ -71,3 +71,10 @@ def projects_source() -> Path:
     """
     env = os.environ.get("IMMORTALS_KGRAPH")
     return Path(env).expanduser() if env else Path.home() / ".copilot" / "agents" / "kgraph" / "kgraph.py"
+
+
+def settings_file() -> Path:
+    """Where the Console stores model-provider configs (incl. API keys). Override:
+    ``IMMORTALS_SETTINGS``. User data (secrets) — lives under the user's home, never in the repo."""
+    env = os.environ.get("IMMORTALS_SETTINGS")
+    return Path(env).expanduser() if env else Path.home() / ".immortals" / "settings.json"

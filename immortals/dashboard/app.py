@@ -169,8 +169,12 @@ def create_app(db_path: str):
 
     # Phase-8 write half (AS-031): POST /api/tasks + WS /ws/tasks/{id}. Additive; read API above
     # is unchanged. Kept in a separate module so the read-only surface stays isolated.
+    from .settings import SettingsStore, attach_settings_api
+    settings_store = SettingsStore()
+    attach_settings_api(app, settings_store)
+
     from .runs_api import attach_write_api
-    app.state.runs = attach_write_api(app, db_path)
+    app.state.runs = attach_write_api(app, db_path, settings_store)
 
     # Projects API (AS-032): kgraph-backed project list + file tree, for workspace-scoped agent work.
     from .projects import attach_projects_api

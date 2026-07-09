@@ -48,7 +48,7 @@ between them through a **local SQLite + MCP** memory substrate.
   `dashboard` — AS-013..024), and **`dashboard/`** (read-only web inspector — prototype frontend; a
   FastAPI app + single static page with 4 views over a run store; FastAPI/uvicorn behind the optional
   `[dashboard]` extra; the read-half seed of the Phase-8 API — see `design/prototype-frontend-handoff.md`).
-  Tests: **240 passing** (231 + 4 folder-picker/register + 5 for AS-034 authoring API).
+  Tests: **247 passing** (240 + 7 for AS-035 settings/provider store).
 - **Ship-ready (AS-024):** all paths resolve through `immortals/config.py` (env-overridable, no
   machine-specific hard-coding); the AS personas ship in repo `agents/` (source of truth) and
   `immortals agents install` syncs them into the copilot agents dir. `<name>AS.md` is the locked
@@ -95,6 +95,26 @@ between them through a **local SQLite + MCP** memory substrate.
 
 ## 5. Decision log (ADR-style)
 > Append-only. Stable anchors; when superseded, keep the anchor and change the title.
+
+### [AS-035] Model-provider settings — configurable keys/endpoints + OpenAI-compatible custom providers
+- Date: 2026-07-09
+- Status: accepted (implemented)
+- Context: Users need to configure API keys per provider and add local/OSS models (Qwen, GLM,
+  DeepSeek, Llama via Ollama/LM Studio/vLLM) and aggregators (Groq, OpenRouter, Together) from the
+  UI — not only via env vars.
+- Decision: `dashboard/settings.py` — a server-side `SettingsStore` (JSON at `config.settings_file()`
+  under the user's home, perms-restricted) holding provider configs `{id,label,adapter,base_url,
+  api_key,model,enabled}`; a **suggested catalogue** (Anthropic/OpenAI/Gemini/Groq/OpenRouter/
+  Together/DeepSeek/Ollama/LM Studio/vLLM); and `build_provider(store, id)` resolving a config to a
+  live provider + model. **Key insight:** every OSS/local host is OpenAI-compatible, so the `openai`
+  adapter + a custom `base_url` covers "add your own". Endpoints: `GET /api/settings/catalog`,
+  `GET/PUT/DELETE /api/settings/providers`. `RunManager` resolves the run's provider from the store
+  (falling back to a bare adapter name + env keys).
+- Rationale: one adapter (openai+base_url) unlocks the whole OSS/local ecosystem; keys stay
+  server-side and are **masked** on read (browser never re-receives a full key); nothing logs keys.
+- Consequences: unblocks the Console settings page + a dynamic provider dropdown. Follow-ups: a
+  connectivity "test" button, per-agent default provider. Tests: `test_settings.py` (masking,
+  keep-key-on-edit, delete, custom base_url resolution).
 
 ### [AS-034] Authoring API — create agents & skills from the Console
 - Date: 2026-07-09

@@ -38,7 +38,7 @@ _TERMINAL = {"completed", "failed", "blocked"}
 _END = "__end__"  # synthetic control message closing a WebSocket stream
 
 
-def _build_runner(opts: dict[str, Any], on_event=None):
+def _build_runner(opts: dict[str, Any], on_event=None, settings=None):
     """Construct a worker backend from request options (mirrors ``cli._make_runner``)."""
     backend = opts.get("backend", "mock")
     if backend == "mock":
@@ -50,8 +50,15 @@ def _build_runner(opts: dict[str, Any], on_event=None):
         workspace = opts.get("workspace")
         if workspace:
             harness = ToolHarness(workspace, approve=(lambda a, d: True) if opts.get("approve") else None)
-        return ApiRunner(opts.get("provider", "anthropic"), model=opts.get("model"),
-                         harness=harness, on_event=on_event)
+        # Resolve the provider from the user's saved settings (key/base_url/model) when available;
+        # otherwise fall back to a bare adapter name with env keys.
+        provider_ref = opts.get("provider", "anthropic")
+        model = opts.get("model")
+        if settings is not None:
+            from .settings import build_provider
+            provider, cfg_model = build_provider(settings, provider_ref)
+            return ApiRunner(provider, model=model or cfg_model, harness=harness, on_event=on_event)
+        return ApiRunner(provider_ref, model=model, harness=harness, on_event=on_event)
     raise ValueError(f"unknown backend {backend!r}")
 
 
@@ -90,8 +97,9 @@ class RunBroker:
 class RunManager:
     """Owns the broker + per-task status and starts orchestrator runs in background threads."""
 
-    def __init__(self, db_path: str) -> None:
+    def __init__(self, db_path: str, settings=None) -> None:
         self.db_path = db_path
+        self.settings = settings
         self.broker = RunBroker()
         self.status: dict[str, str] = {}
         self._threads: dict[str, threading.Thread] = {}
@@ -118,7 +126,7 @@ class RunManager:
         # Stream the agent's live reasoning + tool/terminal activity to WebSocket subscribers.
         on_event = lambda ev: self.broker.publish(plan.task_id, ev)  # noqa: E731
         try:
-            runner = _build_runner(opts, on_event=on_event)
+            runner = _build_runner(opts, on_event=on_event, settings=self.settings)
             orch = Orchestrator(
                 runner=runner,
                 registry=Registry.load(),
@@ -138,9 +146,9 @@ class RunManager:
             self.broker.publish(plan.task_id, {"type": _END, "status": status})
 
 
-def attach_write_api(app, db_path: str) -> RunManager:
+def attach_write_api(app, db_path: str, settings=None) -> RunManager:
     """Register the write endpoints on ``app`` and return the RunManager (Phase-8 seed, AS-031)."""
-    manager = RunManager(db_path)
+    manager = RunManager(db_path, settings=settings)
 
     @app.post("/api/tasks")
     def create_task(body: dict = Body(...)) -> dict[str, Any]:
