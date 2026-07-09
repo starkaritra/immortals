@@ -56,6 +56,61 @@ Legend: ✅ supported · ✅✅ first-class · via MCP = no native concept, use 
 A portable core lets you use **several at once** and switch freely — that is itself the
 anti-lock-in optimization.
 
+## Fully open-source replacements for the proprietary hosts
+
+If you want to drop the subscription hosts (Claude Code, Cursor, Copilot CLI) entirely, these
+OSS tools cover the same ground — all speak MCP, so the `as-skills` server + adapters work
+unchanged. (Grounded in 2026 reviews + benchmarks; see sources at the end.)
+
+| Proprietary host | OSS alternative(s) | License | Native agent-switch | Notes |
+|---|---|---|:--:|---|
+| **Claude Code** | **opencode** | MIT | ✅ | closest drop-in; 75+ providers incl. local Ollama; ~180k★ |
+| | **Codex CLI** | Apache-2.0 | ✅ | top benchmark accuracy; OpenAI-leaning; sandboxed |
+| | **Goose** | Apache-2.0 | ✅ | MCP-first; automation beyond code (DevOps) |
+| | **Gemini CLI** | Apache-2.0 | via file | large free tier |
+| | **Aider** | Apache-2.0 | partial | git-surgical; in maintenance mode |
+| **Cursor** | **Cline** | Apache-2.0 | ✅ | VS Code, approval-gated, GitHub integration |
+| | **Roo Code / Kilo Code** | Apache-2.0 / OSS | ✅ | Cline-family VS Code extensions |
+| | **Continue** | Apache-2.0 | partial | VS Code / JetBrains |
+| | **Void / Zed** | OSS editors | via ACP | Void = OSS Cursor-like; Zed hosts agents |
+| **GitHub Copilot CLI** | **opencode / Codex CLI / Goose** | — | ✅ | same CLI-first, agent-switching UX |
+
+Only Claude Code has *native* `SKILL.md`; on every OSS host above, **our `as-skills` MCP server
+is the skills feature**.
+
+## Use-case suitability (suggestion %)
+
+> **What the numbers mean (read this).** These are **synthesized suitability scores** — my own
+> analysis weighted by 2026 developer reviews/benchmarks (opencode's autonomy + provider breadth,
+> Codex's benchmark accuracy, Goose's MCP/automation depth, Cline's IDE+review flow, Aider's
+> git-surgical safety). They are **recommendations, not measured benchmarks**; treat ±10% as
+> noise and pick within a use-case's top cluster.
+
+| Use case (for this suite) | opencode | Codex CLI | Goose | Cline | Aider | Gemini CLI |
+|---|:--:|:--:|:--:|:--:|:--:|:--:|
+| **Run the full AS suite** (multi-agent + MCP skills) | **90%** | 70% | **88%** | 65% | 40% | 68% |
+| **Heavy coding / large-repo refactor** (coderAS) | **88%** | 85% | 70% | 80% | 82% | 72% |
+| **Local / offline / private / token-limited** | **92%** | 60% | 85% | 75% | 88% | 55% |
+| **Surgical git edits / audits / safety-critical** | 75% | 70% | 60% | 80% | **92%** | 68% |
+| **IDE-integrated workflow** | 60% | 55% | 45% | **92%** | 50% | 55% |
+| **DevOps / automation beyond code** (managerAS ops) | 80% | 65% | **92%** | 55% | 45% | 70% |
+| **Skills-heavy** (paperAS/researchAS/teachAS via MCP) | 88% | 78% | **90%** | 80% | 60% | 75% |
+| **Raw model accuracy / speed** | 82% | **92%** | 72% | 78% | 75% | 80% |
+
+### Bottom line by intent
+- **Default all-rounder for this suite:** **opencode** (90–92% on orchestration, local, coding) —
+  the strongest single drop-in.
+- **If you live in MCP/automation or want managerAS driving ops:** **Goose** (MCP-first, 92%).
+- **If you want maximum model accuracy and accept OpenAI-leaning:** **Codex CLI** (92% accuracy).
+- **If you work in VS Code:** **Cline** (92% IDE fit).
+- **If you want safe, auditable, low-cost git edits (great with local models):** **Aider** (92%
+  git-surgical) — note it's in maintenance mode, so fewer new features.
+- **Cheapest to start / big free tier:** **Gemini CLI**.
+
+*Sources: 2026 comparisons and developer feedback — pinggy.io, rywalker.com, sanj.dev,
+dev.to (moksh / jovan), morphllm Terminal-Bench, agentic.ai, devtoollab. Percentages are the
+author's synthesis of those reviews plus fit-for-this-suite analysis, not a reproducible metric.*
+
 ## Standards to anchor on (so you never rebuild per tool)
 
 | Standard | What it is | We use it for |
