@@ -115,8 +115,10 @@ class Registry:
         """Rank agents against a free-text or capability ``need`` (deterministic, no LLM).
 
         Scores each manifest by: exact/normalised capability phrase hits (heavy), capability-token
-        overlap (medium), and overlap with ``when_to_use``/``summary`` (light). Returns
-        ``[{agent, score, reasons, capabilities, when_to_use}, …]`` sorted by score desc then name.
+        overlap (medium), owned-skill name/topic hits (medium), and overlap with
+        ``when_to_use``/``summary`` (light). Returns
+        ``[{agent, score, reasons, capabilities, skills, when_to_use}, …]`` sorted by score desc
+        then name. The ``skills`` list tells the caller which skills to ``skill_get`` for that agent.
         """
         need_lc = need.lower()
         need_tokens = _tokenize(need)
@@ -134,6 +136,17 @@ class Registry:
             cap_overlap = need_tokens & cap_tokens
             score += 2 * len(cap_overlap)
             reasons += sorted(f"cap~{t}" for t in cap_overlap)
+            # Skill-name signal: a need mentioning a skill's topic surfaces its owner agent.
+            skill_hits = []
+            for sk in m.skills:
+                sk_tokens = _tokenize(sk.replace("-", " "))
+                if sk.replace("-", " ") in need_lc or (sk_tokens and sk_tokens <= need_tokens):
+                    score += 3
+                    skill_hits.append(sk)
+                elif need_tokens & sk_tokens:
+                    score += 1
+                    skill_hits.append(sk)
+            reasons += sorted(f"skill:{s}" for s in skill_hits)
             text_overlap = need_tokens & _tokenize(m.when_to_use + " " + m.summary)
             score += len(text_overlap)
             reasons += sorted(f"text~{t}" for t in text_overlap)
@@ -143,6 +156,7 @@ class Registry:
                     "score": score,
                     "reasons": reasons,
                     "capabilities": list(m.capabilities),
+                    "skills": list(m.skills),
                     "when_to_use": m.when_to_use,
                     "cost_hint": m.cost_hint,
                     "approval_default": m.approval_default,

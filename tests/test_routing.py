@@ -27,6 +27,13 @@ def test_route_matches_capability_phrase(registry):
     assert any(r.startswith("capability:") for r in ranked[0]["reasons"])
 
 
+def test_route_surfaces_skills_and_matches_on_skill_name(registry):
+    ranked = registry.route("verify the citations in my paper")
+    assert ranked and ranked[0]["agent"] == "paperAS"
+    assert "citation-verify" in ranked[0]["skills"]
+    assert any(r == "skill:citation-verify" for r in ranked[0]["reasons"])
+
+
 def test_route_for_teaching(registry):
     ranked = registry.route("explain this concept to me like a tutor")
     assert ranked[0]["agent"] == "teachAS"
