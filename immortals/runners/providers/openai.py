@@ -18,7 +18,7 @@ from .base import (
     ToolCall,
     ToolSpec,
     Usage,
-    _require,
+    post_json,
 )
 
 
@@ -77,7 +77,7 @@ class OpenAIProvider(ModelProvider):
 
     def __init__(self, api_key: str | None = None, base_url: str | None = None):
         self._api_key = api_key or os.environ.get("OPENAI_API_KEY")
-        self._base_url = base_url or os.environ.get("OPENAI_BASE_URL")
+        self._base_url = (base_url or os.environ.get("OPENAI_BASE_URL") or "https://api.openai.com/v1").rstrip("/")
 
     def complete(
         self,
@@ -92,21 +92,17 @@ class OpenAIProvider(ModelProvider):
     ) -> ProviderResponse:
         if not self._api_key:
             raise ProviderError("OPENAI_API_KEY is not set")
-        sdk = _require("openai", "openai")
-        client = sdk.OpenAI(api_key=self._api_key, base_url=self._base_url)
-        kwargs: dict[str, Any] = {
+        body: dict[str, Any] = {
             "model": model or self.default_model,
             "max_tokens": max_tokens,
             "temperature": temperature,
             "messages": _to_wire_messages(system, messages),
         }
         if tools:
-            kwargs["tools"] = _to_wire_tools(tools)
-        try:
-            completion = client.chat.completions.create(**kwargs)
-        except Exception as exc:  # pragma: no cover - network/SDK errors
-            raise ProviderError(f"openai call failed: {exc}") from exc
-        resp = _parse_response(completion.model_dump() if hasattr(completion, "model_dump") else dict(completion))
+            body["tools"] = _to_wire_tools(tools)
+        payload = post_json(self._base_url + "/chat/completions", body,
+                            {"Authorization": f"Bearer {self._api_key}"})
+        resp = _parse_response(payload)
         if on_text and resp.text:
             on_text(resp.text)
         return resp

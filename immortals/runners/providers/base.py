@@ -134,3 +134,27 @@ def _require(module: str, extra: str):
             f"the {extra!r} provider needs the {module!r} package; install it with "
             f'`pip install "immortals[{extra}]"`'
         ) from exc
+
+
+def post_json(url: str, payload: dict, headers: dict[str, str], timeout: int = 600) -> dict:
+    """POST JSON and return parsed JSON, using only the stdlib (no provider SDKs).
+
+    Keeping providers SDK-free means the packaged engine needs no per-provider Python packages —
+    every provider is reachable over plain HTTP. Raises :class:`ProviderError` on any failure.
+    """
+    import json
+    import urllib.error
+    import urllib.request
+
+    req = urllib.request.Request(
+        url, data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json", **headers},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "replace")[:400]
+        raise ProviderError(f"HTTP {exc.code}: {detail}") from exc
+    except Exception as exc:  # noqa: BLE001 - network/DNS/timeout
+        raise ProviderError(f"request to {url} failed: {exc}") from exc

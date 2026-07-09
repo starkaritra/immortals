@@ -19,7 +19,7 @@ from .base import (
     ToolCall,
     ToolSpec,
     Usage,
-    _require,
+    post_json,
 )
 
 
@@ -82,8 +82,9 @@ class GeminiProvider(ModelProvider):
     name = "gemini"
     default_model = "gemini-2.5-flash"
 
-    def __init__(self, api_key: str | None = None):
+    def __init__(self, api_key: str | None = None, base_url: str | None = None):
         self._api_key = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        self._base_url = (base_url or "https://generativelanguage.googleapis.com").rstrip("/")
 
     def complete(
         self,
@@ -98,27 +99,19 @@ class GeminiProvider(ModelProvider):
     ) -> ProviderResponse:
         if not self._api_key:
             raise ProviderError("GEMINI_API_KEY (or GOOGLE_API_KEY) is not set")
-        genai = _require("google.genai", "gemini")
-        client = genai.Client(api_key=self._api_key)
-        config: dict[str, Any] = {
-            "system_instruction": system,
-            "temperature": temperature,
-            "max_output_tokens": max_tokens,
+        mdl = model or self.default_model
+        body: dict[str, Any] = {
+            "system_instruction": {"parts": [{"text": system}]},
+            "contents": _to_wire_contents(messages),
+            "generationConfig": {"temperature": temperature, "maxOutputTokens": max_tokens},
         }
         if tools:
-            config["tools"] = _to_wire_tools(tools)
-        try:
-            result = client.models.generate_content(
-                model=model or self.default_model,
-                contents=_to_wire_contents(messages),
-                config=config,
-            )
-        except Exception as exc:  # pragma: no cover - network/SDK errors
-            raise ProviderError(f"gemini call failed: {exc}") from exc
-        payload = result.model_dump() if hasattr(result, "model_dump") else dict(result)
+            body["tools"] = _to_wire_tools(tools)
+        url = f"{self._base_url}/v1beta/models/{mdl}:generateContent?key={self._api_key}"
+        payload = post_json(url, body, {})
         resp = _parse_response(payload)
         if not resp.model:
-            resp.model = model or self.default_model
+            resp.model = mdl
         if on_text and resp.text:
             on_text(resp.text)
         return resp

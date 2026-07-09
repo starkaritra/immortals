@@ -43,13 +43,11 @@ def test_get_provider_known_and_unknown():
         get_provider("nope")
 
 
-def test_missing_sdk_raises_clear_error(monkeypatch):
-    prov = get_provider("anthropic", api_key="sk-test")
-    monkeypatch.setitem(__import__("sys").modules, "anthropic", None)
-    # importlib returns the module set to None -> ModuleNotFoundError path in _require.
-    with pytest.raises(ProviderError) as exc:
-        prov.complete(system="s", messages=[ChatMessage(role="user", content="hi")])
-    assert "anthropic" in str(exc.value)
+def test_missing_key_raises(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    with pytest.raises(ProviderError):
+        get_provider("anthropic", api_key=None).complete(
+            system="s", messages=[ChatMessage(role="user", content="hi")])
 
 
 def test_missing_key_raises_before_import():

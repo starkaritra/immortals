@@ -18,7 +18,7 @@ from .base import (
     ToolCall,
     ToolSpec,
     Usage,
-    _require,
+    post_json,
 )
 
 
@@ -78,8 +78,9 @@ class AnthropicProvider(ModelProvider):
     name = "anthropic"
     default_model = "claude-sonnet-4-5"
 
-    def __init__(self, api_key: str | None = None):
+    def __init__(self, api_key: str | None = None, base_url: str | None = None):
         self._api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
+        self._base_url = (base_url or os.environ.get("ANTHROPIC_BASE_URL") or "https://api.anthropic.com").rstrip("/")
 
     def complete(
         self,
@@ -94,9 +95,7 @@ class AnthropicProvider(ModelProvider):
     ) -> ProviderResponse:
         if not self._api_key:
             raise ProviderError("ANTHROPIC_API_KEY is not set")
-        sdk = _require("anthropic", "anthropic")
-        client = sdk.Anthropic(api_key=self._api_key)
-        kwargs: dict[str, Any] = {
+        body: dict[str, Any] = {
             "model": model or self.default_model,
             "max_tokens": max_tokens,
             "temperature": temperature,
@@ -104,12 +103,12 @@ class AnthropicProvider(ModelProvider):
             "messages": _to_wire_messages(messages),
         }
         if tools:
-            kwargs["tools"] = _to_wire_tools(tools)
-        try:
-            msg = client.messages.create(**kwargs)
-        except Exception as exc:  # pragma: no cover - network/SDK errors
-            raise ProviderError(f"anthropic call failed: {exc}") from exc
-        resp = _parse_response(msg.model_dump() if hasattr(msg, "model_dump") else dict(msg))
+            body["tools"] = _to_wire_tools(tools)
+        payload = post_json(
+            self._base_url + "/v1/messages", body,
+            {"x-api-key": self._api_key, "anthropic-version": "2023-06-01"},
+        )
+        resp = _parse_response(payload)
         if on_text and resp.text:
             on_text(resp.text)
         return resp
