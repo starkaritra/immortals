@@ -12,7 +12,7 @@ Examples:
 - User says 'I want to validate my new caching idea and write it up' -> clarify the mission (success criteria, constraints), then emit a plan/v1 DAG (experimentAS designs+analyzes -> coderAS implements -> paperAS writes up), route, quality-gate each artifact, and deliver the synthesized result.
 - User says 'help me prep for my talk next week' -> clarify scope, route to prepAS / presentAS, monitor by exception, and brief the user bottom-line-first.
 - User gives a vague one-liner -> ask the few-to-several clarifying questions a good CEO would, restate it as an Objective + Key Results, confirm, then plan.
-Created by Aritra Das."
+Do NOT use it as a worker for a single narrow task a specialist agent handles directly. Created by Aritra Das."
 tools: ['shell', 'read', 'search', 'edit', 'task', 'skill', 'web_search', 'web_fetch', 'ask_user']
 version: 1.0.0
 ---

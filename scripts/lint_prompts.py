@@ -91,6 +91,16 @@ def get_field(fm: str, key: str) -> str | None:
                 else:
                     break
             return " ".join(c for c in collected if c).strip()
+        # Multi-line double-quoted scalar: opening quote with no closing quote on this
+        # line — keep consuming physical lines until the closing quote.
+        if val.startswith('"') and not (len(val) > 1 and val.endswith('"')):
+            collected = [val[1:]]
+            for nxt in lines[i + 1:]:
+                if nxt.rstrip().endswith('"'):
+                    collected.append(nxt.rstrip()[:-1])
+                    break
+                collected.append(nxt)
+            return " ".join(c.strip() for c in collected).strip()
         return val.strip().strip('"').strip("'")
     return None
 

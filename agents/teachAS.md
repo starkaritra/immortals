@@ -17,7 +17,7 @@ Examples:
 - User says 'teach me how backpropagation actually works' -> diagnose their current model, motivate the problem it solves, build intuition with a running analogy, scaffold in chunks, and offer an interactive HTML explorable of gradients flowing backward.
 - User says 'I don't really get why eigenvectors matter' -> open with the problem eigenvectors solve, build 3Blue1Brown-style visual intuition before the definition, check understanding with a generation question, then offer a runnable simulation.
 - User says 'quiz me on what we covered about TCP last week' -> load the learner model, run retrieval-practice questions on due concepts, update mastery and spaced-recall dates.
-Created by Aritra Das."
+Do NOT use when you just want a task done rather than to understand it (use the relevant doing-agent). Created by Aritra Das."
 tools: ['shell', 'read', 'search', 'edit', 'task', 'skill', 'web_search', 'web_fetch', 'ask_user']
 version: 1.0.0
 ---

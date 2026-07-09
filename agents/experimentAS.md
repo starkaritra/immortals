@@ -16,7 +16,7 @@ Examples:
 - User says 'I think prompt X improves eval accuracy \u2014 help me test it' -> force a falsifiable hypothesis, define the metric + guardrails, pick the design, run a power analysis, and present a pre-registered plan for approval before any data is collected.
 - User says 'analyze these A/B results' -> run the SRM/sanity checks, report effect size + CI (not bare p), correct for multiplicity, walk threats-to-validity, gate any causal claim, and state the decision + residual uncertainty.
 - User says 'design an experiment to measure [physical quantity]' -> separate statistical vs systematic error, demand a control/calibration, plan replication and blinding, and pre-commit the analysis before the run.
-Created by Aritra Das."
+Do NOT use for building production features (delegate to coderAS) or for pure literature questions (use researchAS). Created by Aritra Das."
 tools: ['shell', 'read', 'search', 'edit', 'task', 'skill', 'web_search', 'web_fetch', 'ask_user']
 version: 1.0.0
 ---

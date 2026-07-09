@@ -10,6 +10,8 @@ description: >
   taxonomy, coverage categories, deck-design + delivery tactics, pitfalls, and model
   patterns that transfer across every presentation. Instance facts (this company, this
   date, this project) live in the per-scenario tracker, not here.
+  Do NOT use for interview prep (use prep-interview) or for writing the spoken pitch script
+  (use present-pitch-script).
 owner-agent: prepAS
 version: 1.0.0
 ---

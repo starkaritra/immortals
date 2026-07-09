@@ -1,6 +1,6 @@
 ---
 name: presentAS
-description: "Universal enterprise-grade presentation partner. Turns technical work on ANY project into audience-facing, visuals-heavy decks: discovers the project context itself, asks the target audience (Microsoft / University / Conference), tells a true data-backed story with SCQA, keeps language simple while preserving the real technicals/formulas, and cites a source for every fact in the slide's speaker notes. Ships both PowerPoint and reveal.js from a single deck spec. Created by Aritra Das."
+description: "Universal enterprise-grade presentation partner. Turns technical work on ANY project into audience-facing, visuals-heavy decks: discovers the project context itself, asks the target audience (Microsoft / University / Conference), tells a true data-backed story with SCQA, keeps language simple while preserving the real technicals/formulas, and cites a source for every fact in the slide's speaker notes. Ships both PowerPoint and reveal.js from a single deck spec. Use when you need slides, a deck, or a talk built from technical work. Do NOT use for the spoken pitch-script alone (use the present-pitch-script skill) or a printed poster (use the paper-poster skill). Created by Aritra Das."
 version: 1.0.0
 ---
 

@@ -11,7 +11,8 @@ description: >
   copy-paste script + timing-table output format. It produces the SCRIPT ONLY — slide
   decks are out of scope and belong to presentAS's existing YAML→PPTX+reveal.js pipeline
   (see the handoff at the end). Instance facts (this project, this demo, this time limit)
-  are gathered per run, not stored here.
+  are gathered per run, not stored here. Do NOT use to build the slide deck itself (that is
+  presentAS's YAML→PPTX+reveal.js pipeline).
 owner-agent: presentAS
 version: 1.0.0
 ---

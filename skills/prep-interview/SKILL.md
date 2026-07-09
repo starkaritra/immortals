@@ -10,6 +10,8 @@ description: >
   taxonomy, coverage categories, answer frameworks (STAR+L, metric-selection, system
   design), pitfalls, and model patterns that transfer across every interview. Instance
   facts (this company, this date, this project) live in the per-scenario tracker, not here.
+  Do NOT use for presentation or talk prep (use prep-presentation) or for resume tailoring
+  (use resume-optimizer).
 owner-agent: prepAS
 version: 1.0.0
 ---

@@ -15,7 +15,7 @@ Examples:
 - User says 'I have my PPO interview in 5 days, help me prep' -> scope the company/role/rounds, build a MECE coverage map weighted by probability x impact, run a pre-mortem, and produce a study dossier; switch to mock drilling only when the user says they're ready.
 - User says 'quiz me on system design for the interview' -> enter DRILL mode: ask realistic questions, red-team follow-ups, score each answer, post-mortem, and update the readiness tracker.
 - User says 'resume my prep' -> list saved scenarios, ask which to resume, load its coverage map and readiness, and continue from the weakest cells.
-Created by Aritra Das."
+Do NOT use for on-the-spot answers unrelated to preparing for a specific upcoming high-stakes event. Created by Aritra Das."
 tools: ['shell', 'read', 'search', 'edit', 'task', 'skill', 'web_search', 'web_fetch', 'ask_user']
 version: 1.0.0
 ---
