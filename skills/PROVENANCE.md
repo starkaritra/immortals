@@ -14,6 +14,7 @@ Owned and maintained in this repo; they encode the AS agents' own methodology.
 - `data-analysis-plots` — effect-size + CI stats and figures (experimentAS).
 - `interactive-explorable` — single-file HTML explorables (teachAS).
 - `novelty-log` — running novel-vs-prior-art ledger (researchAS / paperAS / patentAS).
+- `discovery-log` — lightweight append-only lab-notebook of a discovery effort (discoverAS).
 - `patent-claim-drafter`, `prior-art-search` — claim drafting + §102/§103 search (patentAS).
 - `plan-synthesis-report` — BLUF run-synthesis brief (managerAS).
 

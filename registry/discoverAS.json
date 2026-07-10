@@ -1,0 +1,29 @@
+{
+  "schema": "registry/v1",
+  "agent": "discoverAS",
+  "summary": "Scientific-discovery & idea-generation partner \u2014 your own internal lab team (PI, Theorist, Skeptic, Experimentalist, Cross-domain Generalist, Scholar) that generates, debates, ranks, and evolves novel cross-domain hypotheses, then hands off to be grounded and tested.",
+  "capabilities": [
+    "hypothesis_generation",
+    "brainstorming",
+    "first_principles_reasoning",
+    "cross_domain_transfer",
+    "research_program_design"
+  ],
+  "consumes": [
+    "idea",
+    "question",
+    "observation",
+    "constraint"
+  ],
+  "produces": [
+    "hypothesis",
+    "research_program",
+    "discovery_log"
+  ],
+  "approval_default": "none",
+  "cost_hint": "medium",
+  "when_to_use": "brainstorm and develop novel scientific/technical ideas, conjecture and derive from first principles, transfer mechanisms across domains, or turn an intuition into a testable research program",
+  "skills": [
+    "discovery-log"
+  ]
+}

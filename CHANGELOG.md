@@ -7,6 +7,14 @@ All notable changes to **Immortals** are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **discoverAS agent + `discovery-log` skill**: a heavy scientific-discovery / idea-generation
+  worker that runs an internal lab-team ensemble (PI, Theorist, Skeptic, Experimentalist,
+  Cross-domain Generalist, Scholar) and a generate→reflect→rank (Elo tournament)→evolve→meta-review
+  **Discovery Loop** (modeled on Google's AI Co-Scientist, Claude Science, and VIRSCI/iMAD),
+  adapted as an interactive partner. Ships `agents/discoverAS.md`, `registry/discoverAS.json`, and
+  the `discovery-log` skill — a lightweight append-only `discovery-log.md` lab notebook so every
+  session's thinking is recorded and revisitable. Regenerated `skills/INDEX.json` (30→31) and the
+  `portable/` host adapters.
 - **Model-provider settings store** (AS-035): a server-side `SettingsStore`
   (`immortals/dashboard/settings.py`) persists per-provider config
   `{id,label,adapter,base_url,api_key,model,enabled}` to a perms-restricted JSON file under the

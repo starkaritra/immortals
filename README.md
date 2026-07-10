@@ -9,7 +9,7 @@
 [![Status](https://img.shields.io/badge/status-alpha-orange.svg)](CHANGELOG.md)
 
 A manager-orchestrated multi-agent system over the **AS agent suite** (coderAS, experimentAS,
-teachAS, prepAS, researchAS, paperAS, patentAS, presentAS, discussAS, …). *Immortals is the
+teachAS, prepAS, researchAS, discoverAS, paperAS, patentAS, presentAS, discussAS, …). *Immortals is the
 orchestration system; the AS agents are "the immortals" it commands.*
 
 - **managerAS** — the single user-facing agent. Turns a task (structured or vague) into a
@@ -24,7 +24,7 @@ orchestration system; the AS agents are "the immortals" it commands.*
   packs (`lecture-notes`, `paper-explainer`, `paper-poster`, `prep-interview`,
   `prep-presentation`, `present-pitch-script`, `resume-optimizer`, plus agent-specific tools
   like `git-pr-workflow`, `latex-build`, `citation-verify`, `literature-search`,
-  `data-analysis-plots`, `interactive-explorable`, `novelty-log`, `patent-claim-drafter`,
+  `data-analysis-plots`, `interactive-explorable`, `novelty-log`, `discovery-log`, `patent-claim-drafter`,
   `prior-art-search`, `plan-synthesis-report`) alongside packs vendored from
   [`anthropics/skills`](https://github.com/anthropics/skills) (`skill-creator`, `docx`, `pdf`,
   `xlsx`, `mcp-builder`, `webapp-testing`, and more). See `skills/PROVENANCE.md` for the full
@@ -90,6 +90,7 @@ manager, and the team does the rest behind the scenes.
 | Specialist | What it does for you |
 |---|---|
 | **researchAS** | Researches a topic or domain, finds prior work, checks if an idea is novel, does cited deep dives. |
+| **discoverAS** | Your own lab team — generates, debates, ranks and evolves novel cross-domain ideas into testable hypotheses, and keeps a lightweight discovery log you can revisit. |
 | **experimentAS** | Designs and runs rigorous experiments to test whether an idea, product, or claim actually holds up. |
 | **coderAS** | Writes, fixes, refactors, and runs real code to a professional standard. |
 | **discussAS** | Pressure-tests your plans and decisions, brainstorms options, and gives blunt critical feedback. |

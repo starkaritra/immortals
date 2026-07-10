@@ -1,7 +1,7 @@
 {
   "schema": "skill-index/v1",
   "generated_by": "scripts/gen_skill_index.py",
-  "count": 30,
+  "count": 31,
   "skills": [
     {
       "name": "brand-guidelines",
@@ -61,6 +61,19 @@
         "assets/analyze.py"
       ],
       "body_tokens_est": 858,
+      "vendored": false
+    },
+    {
+      "name": "discovery-log",
+      "description": "discoverAS-family skill for keeping a lightweight, append-only markdown lab notebook of a discovery effort — so every session's thinking (questions, hypotheses, tournament outcomes, verdicts, dead-ends, next moves, handoffs) is recorded in one place the owner can revisit without re-reading code or re-running the lab. Triggers on: \"log this session\", \"update the discovery log\", \"discovery-log.md\", \"write up what we explored\", \"lab notebook\", \"where did we land last time\". Owns the durable craft of a chronological, revisitable discovery trail that links to the fuller [IDEA-NNN] entries. Keep it lightweight — a few bullets per session.",
+      "owner_agent": "discoverAS",
+      "version": "1.0.0",
+      "argument_hint": "Point me at discovery-log.md, or tell me the session's question and what we concluded",
+      "requires": [],
+      "path": "skills/discovery-log/SKILL.md",
+      "references": [],
+      "assets": [],
+      "body_tokens_est": 971,
       "vendored": false
     },
     {

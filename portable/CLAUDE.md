@@ -9,6 +9,7 @@ This project runs the **AS agent suite**: a set of specialist agents that call *
 | Agent | Use for | Owns skills |
 |---|---|---|
 | **coderAS** | build, implement, refactor, debug, or run/verify code to enterprise quality | git-pr-workflow |
+| **discoverAS** | brainstorm and develop novel scientific/technical ideas, conjecture and derive from fir... | discovery-log |
 | **discussAS** | stress-test a plan/decision, brainstorm options, or get a critical design review | — |
 | **experimentAS** | validate or verify a hypothesis, product, or design choice with a rigorous, pre-registe... | data-analysis-plots |
 | **paperAS** | write, review, or position an academic paper | paper-explainer, paper-poster, latex-build, citation-verify |
@@ -34,6 +35,7 @@ Register the servers with `claude mcp add` or a project `.mcp.json` (see `portab
 |---|---|---|
 | `citation-verify` | paperAS | paperAS-family skill for verifying that every citation in a paper is real, correct, and actually ... |
 | `data-analysis-plots` | experimentAS | experimentAS-family skill for turning experiment/eval results into rigorous statistics and public... |
+| `discovery-log` | discoverAS | discoverAS-family skill for keeping a lightweight, append-only markdown lab notebook of a discove... |
 | `git-pr-workflow` | coderAS | coderAS-family skill for safe, disciplined version-control on any repo: small atomic commits, a m... |
 | `interactive-explorable` | teachAS | teachAS-family skill for building self-contained interactive HTML explorables — the 3Blue1Brown /... |
 | `latex-build` | paperAS | paperAS/paper-poster-family skill for compiling LaTeX sources to PDF reliably and reading the err... |
