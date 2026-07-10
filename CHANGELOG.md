@@ -6,6 +6,8 @@ All notable changes to **Immortals** are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-07-10
+
 ### Added
 - **discoverAS agent + `discovery-log` skill**: a heavy scientific-discovery / idea-generation
   worker that runs an internal lab-team ensemble (PI, Theorist, Skeptic, Experimentalist,
